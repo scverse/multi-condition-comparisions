@@ -8,8 +8,8 @@ from numpy.typing import ArrayLike
 
 def _run_de_pydeseq2(
         adata: AnnData,
-        design: Union[str, ArrayLike], 
-        contrast: str,      
+        design: ArrayLike, 
+        contrast: ArrayLike,      
     ) -> pd.DataFrame:
     '''
     Run differential expression using pydeseq2.
@@ -19,9 +19,9 @@ def _run_de_pydeseq2(
     adata: AnnData
         Annotated data matrix.
     design: Union[str, ArrayLike]
-        Design. Either a matrix with the same number of rows as adata.X or a string of the design formula, or .
-    contrast: str
-        Contrast to test. Must be a string of the form 'condition1 - condition2'.
+        Design matrix with the same number of rows as adata.X.
+    contrast: ArrayLike
+        Binary vector specifying cont
 
     Returns:
     --------
@@ -32,7 +32,7 @@ def _run_de_pydeseq2(
 
 def _run_de_deseq2(
         adata: AnnData,
-        design: Union[str, ArrayLike], 
+        design: ArrayLike, 
         contrast: str,      
     ) -> pd.DataFrame:
     '''
