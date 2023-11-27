@@ -1,0 +1,23 @@
+{
+  "template": "https://github.com/scverse/cookiecutter-scverse",
+  "commit": "30bbbdbd429bcd10099f7a6d9f3583e20b378b95",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "multi-condition-comparisions",
+      "package_name": "multi_condition_comparisions",
+      "project_description": "Functions for analyzing and visualizing multi-condition single-cell data (prototypes created at Cambridge hackathon)",
+      "author_full_name": "Gregor Sturm",
+      "author_email": "gregor@sturmpost.org",
+      "github_user": "grst",
+      "project_repo": "https://github.com/scverse/multi-condition-comparisons",
+      "license": "BSD 3-Clause License",
+      "_copy_without_render": [
+        ".github/workflows/**.yaml",
+        "docs/_templates/autosummary/**.rst"
+      ],
+      "_template": "https://github.com/scverse/cookiecutter-scverse"
+    }
+  },
+  "directory": null
+}
