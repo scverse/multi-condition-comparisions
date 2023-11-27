@@ -36,7 +36,7 @@ def _run_de_deseq2(
         contrast: str,      
     ) -> pd.DataFrame:
     '''
-    Run differential expression using pydeseq2.
+    Run differential expression using DESeq2.
 
     Params:
     -------
@@ -52,3 +52,48 @@ def _run_de_deseq2(
     pd.DataFrame
         Differential expression results
     '''
+
+    ## Get anndata components
+    data_X = adata.X.toarray().copy()
+    data_obs = adata.obs.copy()
+    data_var = adata.var.copy()
+
+    ## Set up the R code
+    deseq2_str = f'''
+        library(DESeq2)
+        
+        run_deseq <- function(args){{
+            # Prepare the data
+            deseq_data <- DESeqDataSetFromMatrix(countData = data_X,
+                                                colData = data_obs,
+                                                design = design)
+
+            # Fit the DESeq2 model
+            deseq_model <- DESeq(deseq_data)
+
+            # Make the comparison
+            deseq_result <- results(deseq_model, contrast=contrast, format="DataFrame")
+
+            return(deseq_result)
+        }}
+        '''
+
+    r_pkg = STAP(deseq2_str, "r_pkg")
+   
+    # this was needed for the code to run on jhub
+    # if you have a different version of rpy2 you may not need these two lines
+    rpy2.robjects.pandas2ri.activate()
+    rpy2.robjects.numpy2ri.activate()
+    
+    out_filename = './de_results_DESeq2.csv'
+
+    # Run DE
+    args = [data_X, data_obs]
+    de_res_df = r_pkg.run_de(args)
+
+    # Relplace the index with the gene namess
+    de_res_df = pd.read_csv(out_filename, index_col=0)
+    de_res_df.index = de_res_df['gene_name']
+    de_res_df.drop('name', axis=1, inplace=True)
+    os.remove(out_filename)
+    return(de_res_df)
