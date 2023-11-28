@@ -2,6 +2,7 @@ import anndata as ad
 import numpy as np
 import pytest
 import statsmodels.api as sm
+from pandas import testing as tm
 from pydeseq2.utils import load_example_data
 
 import multi_condition_comparisions
@@ -47,4 +48,7 @@ def test_de(test_adata, method_class: BaseMethod, kwargs):
     method = method_class(adata=test_adata, design="~condition")
     method.fit(**kwargs)
     res_df = method.test_contrasts(np.array([0, 1]))
+    # Check that the result has the correct number of rows
     assert len(res_df) == test_adata.n_vars
+    # Check that the index of the result matches the var_names of the adata
+    tm.assert_index_equal(test_adata.var_names, res_df.index, check_order=False, check_names=False)
