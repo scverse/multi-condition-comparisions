@@ -161,3 +161,70 @@ class StatsmodelsDE(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue")
+
+
+def _fit_pydeseq2(
+        adata: AnnData,
+        design: ArrayLike, 
+      #  contrast: ArrayLike, 
+    kwargs**
+    ) -> pd.DataFrame:
+    '''
+    Fit dds model using pydeseq2. Note: this creates its own adata object for downstream. 
+
+    Params:
+    -------
+    adata: AnnData
+        Annotated data matrix.
+    design: Union[ArrayLike]
+        Design matrix with the same number of rows as adata.X.
+    contrast: ArrayLike
+        Binary vector specifying cont
+    kwargs: could be n_cpus, refit_cooks
+    Returns:
+    --------
+    pd.DataFrame
+        Differential expression results
+    '''
+    
+    inference = DefaultInference(n_cpus=3)
+   # not necessary
+   # counts_df = pd.DataFrame(adata.X, index= adata.obs_names, columns = adata.var_names) 
+   # metadata = pd.DataFrame(design,index= adata.obs_names, columns = adata.var_names)
+    dds = DeseqDataSet(adata, design_factors="condition", refit_cooks=True, inference=inference)
+    dds.obsm['design_matrix'] = pd.DataFrame(design, 
+                                             index = adata.obs_names.copy())
+    #implement correct naming of the columns in design matrix for
+    # downstream 
+    dds.fit_size_factors()
+    dds.fit_genewise_dispersions()
+    dds.fit_dispersion_trend()
+    dds.fit_dispersion_prior()
+    dds.fit_LFC()
+    
+    if refit_cooks:
+        dds.calculate_cooks()
+        dds.refit()# Replace outlier counts
+    self.dds = dds
+
+    
+def _test_contrast_pydeseq2(self, contrast: List[str],  alpha = 0.05,
+                            **kwargs) -> pd.DataFrame:
+        """
+        Conduct a specific test and returns a data frame
+
+        Parameters
+        ----------
+        contrasts:
+            list of three strings of the form 
+            ["variable", "tested level", "reference level"]
+        alpha: p value threshold used for controlling fdr with 
+        independent hypothesis weighting  
+        kwargs: extra arguments to pass to DeseqStats()
+        """
+
+    stat_res = DeseqStats(dds, contrast = contrast, 
+                          alpha=alpha,**kwargs)
+    stat_res.summary()
+    stat_res.p_values
+    stat_res.results_df
