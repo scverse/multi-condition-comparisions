@@ -181,7 +181,7 @@ class PyDESeq2DE(BaseMethod):
         '''
         
         inference = DefaultInference(n_cpus=3)
-        dds = DeseqDataSet(self.adata, design_factors="condition", refit_cooks=True, inference=inference, **kwargs)
+        dds = DeseqDataSet(adata=self.adata, design_factors="condition", refit_cooks=True, inference=inference, **kwargs)
         dds.obsm['design_matrix'] = pd.DataFrame(self.design, index = self.adata.obs_names.copy())
         #implement correct naming of the columns in design matrix for
         # downstream 
