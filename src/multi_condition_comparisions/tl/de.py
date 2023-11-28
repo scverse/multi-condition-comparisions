@@ -1,17 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import Literal
 
+import formulaic.model_matrix
 import numpy as np
 import pandas as pd
-from formulaic import model_matrix
-import formulaic.model_matrix
-from anndata import AnnData
-import statsmodels.regression.linear_model
 import scanpy as sc
+import statsmodels.regression.linear_model
+from anndata import AnnData
+from formulaic import model_matrix
 from tqdm.auto import tqdm
 
+
 class BaseMethod(ABC):
-    def __init__(self, adata: AnnData, design: str | np.ndarray, mask: str | None = None, layer: str | None = None, **kwargs):
+    def __init__(
+        self, adata: AnnData, design: str | np.ndarray, mask: str | None = None, layer: str | None = None, **kwargs
+    ):
         """
         Initialize the method
 
@@ -73,7 +75,7 @@ class BaseMethod(ABC):
             contrasts = {None: contrasts}
         results = []
         for name, contrast in contrasts.items():
-            results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast = name))
+            results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
         return pd.concat(results)
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
@@ -131,13 +133,14 @@ class BaseMethod(ABC):
 
 
 class StatsmodelsDE(BaseMethod):
+    """Differential expression test using a statsmodels linear regression"""
+
     def fit(self):
         """Fit the OLS model"""
         self.models = []
         for var in tqdm(self.adata.var_names):
             mod = statsmodels.regression.linear_model.OLS(
-                sc.get.obs_df(self.adata, keys=[var], layer=self.layer)[var],
-                self.design
+                sc.get.obs_df(self.adata, keys=[var], layer=self.layer)[var], self.design
             )
             mod = mod.fit()
             self.models.append(mod)
@@ -146,9 +149,13 @@ class StatsmodelsDE(BaseMethod):
         res = []
         for var, mod in zip(tqdm(self.adata.var_names), self.models):
             t_test = mod.t_test(contrast)
-            return t_test
-            res.append({"pvalue": t_test.pvalue, "tvalue": t_test.tvalue, "sd": t_test.sd, "fold_change": t_test.effect})
-        return pd.DataFrame(res)
-
-
-
+            res.append(
+                {
+                    "variable": var,
+                    "pvalue": t_test.pvalue,
+                    "tvalue": t_test.tvalue.item(),
+                    "sd": t_test.sd.item(),
+                    "fold_change": t_test.effect.item(),
+                }
+            )
+        return pd.DataFrame(res).sort_values("pvalue")
