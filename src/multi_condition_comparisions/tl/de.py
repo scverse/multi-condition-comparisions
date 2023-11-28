@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 
-import formulaic.model_matrix
 import numpy as np
 import pandas as pd
 import scanpy as sc
 import statsmodels.regression.linear_model
 from anndata import AnnData
 from formulaic import model_matrix
+from formulaic.model_matrix import ModelMatrix
 from tqdm.auto import tqdm
 
 
@@ -108,16 +108,18 @@ class BaseMethod(ABC):
         **kwargs
 
         """
-        if not isinstance(self.design, formulaic.model_matrix.ModelMatrix):
+        if not isinstance(self.design, ModelMatrix):
             raise RuntimeError(
                 "Building contrasts with `cond` only works if you specified the model using a "
                 "formulaic formula. Please manually provide a contrast vector."
             )
+
+        # TODO pre-fill the dictionary with baseline values for keys that are not specified
+        # TODO not sure how that works for continuous variables
         # for factor, factor_info in self.design.design_info.factor_infos.items():
         #     pass
 
-        # patsy.build_design_matrices(self.design.design_info, kwargs)
-        raise NotImplementedError
+        return self.design.model_spec.get_model_matrix(pd.DataFrame([kwargs]))
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
         """
