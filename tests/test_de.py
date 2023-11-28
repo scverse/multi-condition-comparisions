@@ -4,7 +4,7 @@ import pytest
 from pydeseq2.utils import load_example_data
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import BaseMethod, StatsmodelsDE
+from multi_condition_comparisions.tl.de import BaseMethod, PyDESeq2DE, StatsmodelsDE
 
 
 def test_package_has_version():
@@ -35,4 +35,16 @@ def test_de(test_adata, method_class: BaseMethod):
     method = method_class(adata=test_adata, design="~condition")
     method.fit()
     res_df = method.test_contrasts(np.array([0, 1]))
+    assert len(res_df) == test_adata.n_vars
+
+def test_pydeseq2de(test_adata):
+    """Check that the pyDESeq2 method can be initialized and fitted and that the test_contrast
+    method returns a dataframe with the correct number of rows.
+
+    Now this is a separate  
+    
+    """
+    method = PyDESeq2DE(adata=test_adata, design="~condition")
+    method.fit()
+    res_df = method.test_contrasts(['condition', 'A', 'B'])
     assert len(res_df) == test_adata.n_vars

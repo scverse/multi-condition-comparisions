@@ -1,3 +1,4 @@
+from typing import List
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -9,8 +10,9 @@ from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
 from tqdm.auto import tqdm
 
-from pydeseq2 import DeseqDataSet, DeseqStats, DefaultInference
-
+from pydeseq2.dds import DeseqDataSet
+from pydeseq2.default_inference import DefaultInference
+from pydeseq2.ds import DeseqStats
 
 class BaseMethod(ABC):
     def __init__(
@@ -168,7 +170,7 @@ class StatsmodelsDE(BaseMethod):
 class PyDESeq2DE(BaseMethod):
     """Differential expression test using a PyDESeq2"""
 
-    def fit(**kwargs) -> pd.DataFrame:
+    def fit(self, **kwargs) -> pd.DataFrame:
         '''
         Fit dds model using pydeseq2. Note: this creates its own adata object for downstream. 
 
@@ -179,7 +181,7 @@ class PyDESeq2DE(BaseMethod):
         '''
         
         inference = DefaultInference(n_cpus=3)
-        dds = DeseqDataSet(self.adata, design_factors="condition", refit_cooks=True, inference=inference, **kwargs)
+        dds = DeseqDataSet(adata=self.adata, design_factors="condition", refit_cooks=True, inference=inference, **kwargs)
         dds.obsm['design_matrix'] = pd.DataFrame(self.design, index = self.adata.obs_names.copy())
         #implement correct naming of the columns in design matrix for
         # downstream 
