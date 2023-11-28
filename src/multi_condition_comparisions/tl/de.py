@@ -296,7 +296,7 @@ class EdgeRDE(BaseMethod):
         fit = self.fit
         
         ## -- Convert vector to R
-        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrasts[contrast_i]))
+        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast))
         ro.globalenv["contrast_vec"] = contrast_vec_r
         
         ## -- Test contrast with R
