@@ -46,6 +46,8 @@ def test_adata():
             StatsmodelsDE,
             {"regression_model": sm.GLM, "family": sm.families.NegativeBinomial()},
         ),
+        # DESeq2 basic
+        (DESeq2DE, {}),
     ],
 )
 def test_de(test_adata, method_class: BaseMethod, kwargs):
