@@ -7,7 +7,7 @@ name = "multi-condition-comparisions"
 version = "0.0.1"
 description = "Functions for analyzing and visualizing multi-condition single-cell data (prototypes created at Cambridge hackathon)"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
     {name = "Gregor Sturm"},
@@ -20,7 +20,9 @@ urls.Source = "https://github.com/scverse/multi-condition-comparisons"
 urls.Home-page = "https://github.com/scverse/multi-condition-comparisons"
 dependencies = [
     "anndata",
+    "formulaic",
     "pydeseq2",
+    "scanpy",
     # for debug logging (referenced from the issue template)
     "session-info"
 ]
