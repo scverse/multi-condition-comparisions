@@ -192,6 +192,9 @@ class EdgeRDE(BaseMethod):
             from rpy2.robjects.conversion import localconverter
             from rpy2 import robjects as ro
             
+            pandas2ri.activate()
+            rpy2.robjects.numpy2ri.activate()
+            
         except ImportError:
             raise ImportError("edger requires rpy2 to be installed. ")
             
