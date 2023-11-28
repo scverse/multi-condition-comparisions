@@ -191,4 +191,4 @@ class StatsmodelsDE(BaseMethod):
                     "fold_change": t_test.effect.item(),
                 }
             )
-        return pd.DataFrame(res).sort_values("pvalue")
+        return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
