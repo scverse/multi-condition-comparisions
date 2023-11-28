@@ -29,7 +29,7 @@ def test_adata():
 
 
 @pytest.mark.parametrize("method_class", [StatsmodelsDE, PyDESeq2DE])
-def test_de(method_class: BaseMethod):
+def test_de(test_adata, method_class: BaseMethod):
     """Check that the method can be initialized and fitted and that the test_contrast
     method returns a dataframe with the correct number of rows"""
     method = method_class(adata=test_adata, design="~condition")
