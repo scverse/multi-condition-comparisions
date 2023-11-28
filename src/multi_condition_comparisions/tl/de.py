@@ -1,15 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import Literal
 
+import formulaic.model_matrix
 import numpy as np
 import pandas as pd
-from formulaic import model_matrix
-import formulaic.model_matrix
+import scanpy as sc
+import statsmodels.regression.linear_model
 from anndata import AnnData
+from formulaic import model_matrix
+from tqdm.auto import tqdm
 
 
-class MethodBase(ABC):
-    def __init__(self, adata: AnnData, design: str | np.ndarray, mask: str, layer: str | None = None, **kwargs):
+class BaseMethod(ABC):
+    def __init__(
+        self, adata: AnnData, design: str | np.ndarray, mask: str | None = None, layer: str | None = None, **kwargs
+    ):
         """
         Initialize the method
 
@@ -24,12 +28,19 @@ class MethodBase(ABC):
         **kwargs
             Keyword arguments specific to the method implementation
         """
-        self.adata = adata[:, adata.var[mask]]
+        self.adata = adata
+        if mask is not None:
+            self.adata = self.adata[:, self.adata.var[mask]]
         self.layer = layer
         if isinstance(design, str):
             self.design = model_matrix(design, adata.obs)
         else:
             self.design = design
+
+    @property
+    def variables(self):
+        """Get the names of the variables used in the model definition"""
+        return self.design.model_spec.variables_by_source["data"]
 
     @abstractmethod
     def fit(self, **kwargs) -> None:
@@ -41,13 +52,13 @@ class MethodBase(ABC):
         **kwargs
             Additional arguments for fitting the specific method.
         """
-        pass
+        ...
 
     @abstractmethod
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
-        pass
+        ...
 
-    def test_contrast(self, contrasts: dict[str, str] | str, **kwargs) -> pd.DataFrame:
+    def test_contrasts(self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
         Conduct a specific test
 
@@ -60,10 +71,14 @@ class MethodBase(ABC):
 
             or a tuple withe three elements contrasts = ("condition", "control", "treatment")
         """
+        if not isinstance(contrasts, dict):
+            contrasts = {None: contrasts}
+        results = []
         for name, contrast in contrasts.items():
-            self._test_single_contrast(contrast, **kwargs)
+            results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
+        return pd.concat(results)
 
-    def test_reduced(self, modelB: "DeMethod") -> pd.DataFrame:
+    def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
         """
         Test against a reduced model
 
@@ -115,3 +130,32 @@ class MethodBase(ABC):
         ```
         """
         return self.cond(**{column: baseline}) - self.cond(**{column: group_to_compare})
+
+
+class StatsmodelsDE(BaseMethod):
+    """Differential expression test using a statsmodels linear regression"""
+
+    def fit(self):
+        """Fit the OLS model"""
+        self.models = []
+        for var in tqdm(self.adata.var_names):
+            mod = statsmodels.regression.linear_model.OLS(
+                sc.get.obs_df(self.adata, keys=[var], layer=self.layer)[var], self.design
+            )
+            mod = mod.fit()
+            self.models.append(mod)
+
+    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
+        res = []
+        for var, mod in zip(tqdm(self.adata.var_names), self.models):
+            t_test = mod.t_test(contrast)
+            res.append(
+                {
+                    "variable": var,
+                    "pvalue": t_test.pvalue,
+                    "tvalue": t_test.tvalue.item(),
+                    "sd": t_test.sd.item(),
+                    "fold_change": t_test.effect.item(),
+                }
+            )
+        return pd.DataFrame(res).sort_values("pvalue")
