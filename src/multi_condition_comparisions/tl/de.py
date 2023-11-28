@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import scanpy as sc
-import statsmodels.regression.linear_model
+import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
@@ -12,7 +12,12 @@ from tqdm.auto import tqdm
 
 class BaseMethod(ABC):
     def __init__(
-        self, adata: AnnData, design: str | np.ndarray, mask: str | None = None, layer: str | None = None, **kwargs
+        self,
+        adata: AnnData,
+        design: str | np.ndarray,
+        mask: str | None = None,
+        layer: str | None = None,
+        **kwargs,
     ):
         """
         Initialize the method
@@ -24,7 +29,9 @@ class BaseMethod(ABC):
         design
             Model design. Can be either a design matrix, a formulaic formula.
         mask
-            a column in adata.var that contains a boolean mask with selected features.
+            A column in adata.var that contains a boolean mask with selected features.
+        layer
+            Layer to use in fit(). If None, use the X matrix.
         **kwargs
             Keyword arguments specific to the method implementation
         """
@@ -137,12 +144,36 @@ class BaseMethod(ABC):
 class StatsmodelsDE(BaseMethod):
     """Differential expression test using a statsmodels linear regression"""
 
-    def fit(self):
-        """Fit the OLS model"""
+    def fit(
+        self,
+        regression_model: sm.OLS | sm.GLM = sm.OLS,
+        **kwargs,
+    ) -> None:
+        """
+        Fit the specified regression model.
+
+        Parameters
+        ----------
+        regression_model
+            A statsmodels regression model class, either OLS or GLM. Defaults to OLS.
+
+        **kwargs
+            Additional arguments for fitting the specific method. In particular, this
+            is where you can specify the family for GLM.
+
+        Example
+        -------
+        >>> import statsmodels.api as sm
+        >>> model = StatsmodelsDE(adata, design="~condition")
+        >>> model.fit(sm.GLM, family=sm.families.NegativeBinomial(link=sm.families.links.Log()))
+        >>> results = model.test_contrasts(np.array([0, 1]))
+        """
         self.models = []
         for var in tqdm(self.adata.var_names):
-            mod = statsmodels.regression.linear_model.OLS(
-                sc.get.obs_df(self.adata, keys=[var], layer=self.layer)[var], self.design
+            mod = regression_model(
+                sc.get.obs_df(self.adata, keys=[var], layer=self.layer)[var],
+                self.design,
+                **kwargs,
             )
             mod = mod.fit()
             self.models.append(mod)
