@@ -168,7 +168,7 @@ class StatsmodelsDE(BaseMethod):
 class EdgeRDE(BaseMethod):
     """Differential expression test using EdgeR"""
 
-    def fit(self, kwargs**): #adata, design, mask, layer
+    def fit(self, **kwargs): #adata, design, mask, layer
         '''
         Fit model using edgeR. Note: this creates its own adata object for downstream. 
 
@@ -235,7 +235,7 @@ class EdgeRDE(BaseMethod):
         dge = edger.estimateDisp(dge, design=design)
 
         logging.info("Fitting linear model")
-        fit = edger.glmQLFit(dge, design=design, kwargs**)
+        fit = edger.glmQLFit(dge, design=design)
 
         ## -- Save object
         ro.globalenv["fit"] = fit
