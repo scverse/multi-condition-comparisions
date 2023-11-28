@@ -5,6 +5,12 @@ import statsmodels.api as sm
 from pandas import testing as tm
 from pydeseq2.utils import load_example_data
 
+try:
+    from rpy2.robjects.packages import importr
+    r_dependency = importr("DESeq2")
+except Exception:  # noqa: BLE001
+    r_dependency = None
+
 import multi_condition_comparisions
 from multi_condition_comparisions.tl.de import BaseMethod, StatsmodelsDE
 
