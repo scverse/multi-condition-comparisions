@@ -9,6 +9,9 @@ from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
 from tqdm.auto import tqdm
 
+from scanpy import logging
+from scipy.sparse import issparse
+
 
 class BaseMethod(ABC):
     def __init__(
@@ -161,3 +164,143 @@ class StatsmodelsDE(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue")
+
+class EdgeRDE(BaseMethod):
+    """Differential expression test using EdgeR"""
+
+    def fit(kwargs**): #adata, design, mask, layer
+        '''
+        Fit model using edgeR. Note: this creates its own adata object for downstream. 
+
+        Params:
+        ----------
+        **kwargs
+            Keyword arguments specific to glmQLFit()
+        '''
+        
+        ## For running in notebook
+        #pandas2ri.activate()
+        #rpy2.robjects.numpy2ri.activate()
+        
+        ## -- Check installations
+        try:
+            import rpy2.robjects.pandas2ri
+            import rpy2.robjects.numpy2ri
+            from rpy2.robjects.packages import importr
+            from rpy2.robjects import pandas2ri, numpy2ri
+            from rpy2.robjects.conversion import localconverter
+            from rpy2 import robjects as ro
+            
+        except ImportError:
+            raise ImportError("edger requires rpy2 to be installed. ")
+            
+        try:
+            base = importr("base")
+            edger = importr("edgeR")
+            stats = importr("stats")
+            limma = importr("limma")
+            blasctl = importr("RhpcBLASctl")
+            bcparallel = importr("BiocParallel")
+        except ImportError:
+            raise ImportError(
+                    "edgeR requires a valid R installation with the following packages: "
+                    "edgeR, BiocParallel, RhpcBLASctl"
+                )
+
+        ## -- Feature selection
+        #if mask is not None:
+        #    self.adata = self.adata[:,~self.adata.var[mask]]
+        
+        ## -- Convert dataframe
+        with localconverter(ro.default_converter + numpy2ri.converter):
+            expr = self.adata.X if layer is None else self.adata.layers[layer]
+            if issparse(expr):
+                expr = expr.T.toarray()
+            else:
+                expr = expr.T
+
+        expr_r = ro.conversion.py2rpy(pd.DataFrame(expr, 
+                                                   index=self.adata.var_names, 
+                                                   columns=self.adata.obs_names))
+
+        ## -- Convert to DGE
+        dge = edger.DGEList(counts=expr_r, 
+                            samples=self.adata.obs)
+        
+        ## -- Run EdgeR
+        logging.info("Calculating NormFactors")
+        dge = edger.calcNormFactors(dge)
+
+        logging.info("Estimating Dispersions")
+        dge = edger.estimateDisp(dge, design=design)
+
+        logging.info("Fitting linear model")
+        fit = edger.glmQLFit(dge, design=design, kwargs**)
+
+        ## -- Save object
+        ro.globalenv["fit"] = fit
+        #self.adata.uns["fit"] = fit
+        self.fit = fit
+        
+    def test_contrasts(self, contrasts: dict[str, np.ndarray], **kwargs) -> pd.DataFrame:
+        """
+        Conduct test for each contrast and return a data frame
+
+        Parameters
+        ----------
+        contrasts:
+            dictionary of contrasts in the form
+            {"contrast_name": contrast_vector}
+        kwargs: extra arguments to pass to ....()
+        """
+        
+        ## For running in notebook
+        #pandas2ri.activate()
+        #rpy2.robjects.numpy2ri.activate()
+        
+        ## -- Check installations
+        try:
+            import rpy2.robjects.pandas2ri
+            import rpy2.robjects.numpy2ri
+            from rpy2.robjects.packages import importr
+            from rpy2.robjects import pandas2ri, numpy2ri
+            from rpy2.robjects.conversion import localconverter
+            from rpy2 import robjects as ro
+            
+        except ImportError:
+            raise ImportError("edger requires rpy2 to be installed. ")
+            
+        try:
+            base = importr("base")
+            edger = importr("edgeR")
+            stats = importr("stats")
+            limma = importr("limma")
+            blasctl = importr("RhpcBLASctl")
+            bcparallel = importr("BiocParallel")
+        except ImportError:
+            raise ImportError(
+                    "edgeR requires a valid R installation with the following packages: "
+                    "edgeR, BiocParallel, RhpcBLASctl"
+                )
+
+        fit = self.fit
+        
+        ## Some contrasts may be [-1,0,0,0,1] but others may be [-1,-1,0,1,1]
+        ## Using the vector directly ensure expected behaviour
+
+        output_res = []
+        for contrast_i in contrasts.keys():
+            contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrasts[contrast_i]))
+            ro.globalenv["contrast_vec"] = contrast_vec_r
+    
+            ro.r(
+                """
+                test = edgeR::glmQLFTest(fit, contrast=contrast_vec)
+                de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH")$table 
+                """
+            )
+            de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
+            de_res["contrast"] = [contrast_i]*de_res.shape[0]
+            output_res.append(de_res)
+                
+        return pd.concat(output_res).sort_values("PValue")
