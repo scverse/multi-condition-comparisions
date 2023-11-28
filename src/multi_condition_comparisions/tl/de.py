@@ -214,7 +214,7 @@ class EdgeRDE(BaseMethod):
         
         ## -- Convert dataframe
         with localconverter(ro.default_converter + numpy2ri.converter):
-            expr = self.adata.X if layer is None else self.adata.layers[layer]
+            expr = self.adata.X if self.layer is None else self.adata.layers[self.layer]
             if issparse(expr):
                 expr = expr.T.toarray()
             else:
@@ -233,10 +233,10 @@ class EdgeRDE(BaseMethod):
         dge = edger.calcNormFactors(dge)
 
         logging.info("Estimating Dispersions")
-        dge = edger.estimateDisp(dge, design=design)
+        dge = edger.estimateDisp(dge, design=self.design)
 
         logging.info("Fitting linear model")
-        fit = edger.glmQLFit(dge, design=design, **kwargs)
+        fit = edger.glmQLFit(dge, design=self.design, **kwargs)
 
         ## -- Save object
         ro.globalenv["fit"] = fit
