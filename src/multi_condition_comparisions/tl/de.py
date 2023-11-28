@@ -235,14 +235,14 @@ class EdgeRDE(BaseMethod):
         dge = edger.estimateDisp(dge, design=design)
 
         logging.info("Fitting linear model")
-        fit = edger.glmQLFit(dge, design=design)
+        fit = edger.glmQLFit(dge, design=design, **kwargs)
 
         ## -- Save object
         ro.globalenv["fit"] = fit
         #self.adata.uns["fit"] = fit
         self.fit = fit
         
-    def _test_single_contrast(self, contrast: List[str]) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
