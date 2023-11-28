@@ -49,7 +49,7 @@ jobs:
           pip install ${{ matrix.pip-flags }} ".[dev,test]"
       - name: Install R package dependencies
         run: |
-          Rscript --vanilla -e "install.packages(c('BiocManager', 'statmod'), repos='http://cran.us.r-project.org'); library('BiocManager'); BiocManager::install('edgeR', 'DESeq2')"
+          Rscript --vanilla -e "install.packages(c('BiocManager', 'statmod'), repos='http://cran.us.r-project.org'); library('BiocManager'); BiocManager::install(c('edgeR', 'DESeq2'))"
       - name: Test
         env:
           MPLBACKEND: agg
