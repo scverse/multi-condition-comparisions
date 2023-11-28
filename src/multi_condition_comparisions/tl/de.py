@@ -168,7 +168,7 @@ class StatsmodelsDE(BaseMethod):
 class EdgeRDE(BaseMethod):
     """Differential expression test using EdgeR"""
 
-    def fit(kwargs**): #adata, design, mask, layer
+    def fit(self, kwargs**): #adata, design, mask, layer
         '''
         Fit model using edgeR. Note: this creates its own adata object for downstream. 
 
@@ -242,7 +242,7 @@ class EdgeRDE(BaseMethod):
         #self.adata.uns["fit"] = fit
         self.fit = fit
         
-    def _test_single_contrast(self, contrast: List[str], **kwargs) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast: List[str]) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
@@ -251,12 +251,15 @@ class EdgeRDE(BaseMethod):
         contrast:
             numpy array of integars indicating contrast
             i.e. [-1, 0, 1, 0, 0]
-        kwargs: extra arguments to pass to ....()
         """
         
         ## For running in notebook
         #pandas2ri.activate()
         #rpy2.robjects.numpy2ri.activate()
+        
+        ## -- To do:
+        ##  parse **kwargs to R function
+        ##  Fix mask for .fit()
         
         ## -- Check installations
         try:
