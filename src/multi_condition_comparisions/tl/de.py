@@ -242,15 +242,15 @@ class EdgeRDE(BaseMethod):
         #self.adata.uns["fit"] = fit
         self.fit = fit
         
-    def test_contrasts(self, contrasts: dict[str, np.ndarray], **kwargs) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast: List[str], **kwargs) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
         Parameters
         ----------
-        contrasts:
-            dictionary of contrasts in the form
-            {"contrast_name": contrast_vector}
+        contrast:
+            numpy array of integars indicating contrast
+            i.e. [-1, 0, 1, 0, 0]
         kwargs: extra arguments to pass to ....()
         """
         
@@ -283,24 +283,24 @@ class EdgeRDE(BaseMethod):
                     "edgeR, BiocParallel, RhpcBLASctl"
                 )
 
+        ## -- Get fit object
         fit = self.fit
         
-        ## Some contrasts may be [-1,0,0,0,1] but others may be [-1,-1,0,1,1]
-        ## Using the vector directly ensure expected behaviour
+        ## -- Convert vector to R
+        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrasts[contrast_i]))
+        ro.globalenv["contrast_vec"] = contrast_vec_r
+        
+        ## -- Test contrast with R
+        ro.r(
+            """
+            test = edgeR::glmQLFTest(fit, contrast=contrast_vec)
+            de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH")$table 
+            """
+        )
+        
+        ## -- Convert results to pandas
+        de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
+        de_res["contrast"] = [contrast_i]*de_res.shape[0]
+        
+        return pd.concat(de_res).sort_values("PValue")
 
-        output_res = []
-        for contrast_i in contrasts.keys():
-            contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrasts[contrast_i]))
-            ro.globalenv["contrast_vec"] = contrast_vec_r
-    
-            ro.r(
-                """
-                test = edgeR::glmQLFTest(fit, contrast=contrast_vec)
-                de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH")$table 
-                """
-            )
-            de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
-            de_res["contrast"] = [contrast_i]*de_res.shape[0]
-            output_res.append(de_res)
-                
-        return pd.concat(output_res).sort_values("PValue")
