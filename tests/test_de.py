@@ -34,5 +34,5 @@ def test_de(method_class: BaseMethod):
     method returns a dataframe with the correct number of rows"""
     method = method_class(adata=test_adata, design="~condition")
     method.fit()
-    res_df = method.test_contrast(np.array([0, 1]))
+    res_df = method.test_contrasts(np.array([0, 1]))
     assert len(res_df) == test_adata.n_vars

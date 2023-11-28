@@ -33,7 +33,7 @@ pip install multi-condition-comparisions
 1. Install the latest development version:
 
 ```bash
-pip install git+https://github.com/grst/multi-condition-comparisions.git@main
+pip install git+https://github.com/scverse/multi-condition-comparisions.git@main
 ```
 
 ## Release notes
