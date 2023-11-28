@@ -303,12 +303,12 @@ class EdgeRDE(BaseMethod):
         ro.r(
             """
             test = edgeR::glmQLFTest(fit, contrast=contrast_vec)
-            de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH")$table 
+            de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH", sort.by="PValue")$table 
             """
         )
         
         ## -- Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
-        return de_res.sort_values("PValue")
+        return de_res
 
