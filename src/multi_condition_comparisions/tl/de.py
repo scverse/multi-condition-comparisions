@@ -168,7 +168,7 @@ class StatsmodelsDE(BaseMethod):
 class PyDESeq2DE(BaseMethod):
     """Differential expression test using a PyDESeq2"""
 
-    def fit(kwargs**) -> pd.DataFrame:
+    def fit(**kwargs) -> pd.DataFrame:
         '''
         Fit dds model using pydeseq2. Note: this creates its own adata object for downstream. 
 
