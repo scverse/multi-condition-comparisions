@@ -20,6 +20,7 @@ urls.Source = "https://github.com/scverse/multi-condition-comparisons"
 urls.Home-page = "https://github.com/scverse/multi-condition-comparisons"
 dependencies = [
     "anndata",
+    "formulaic",
     # for debug logging (referenced from the issue template)
     "session-info"
 ]
