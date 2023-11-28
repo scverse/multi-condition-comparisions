@@ -1,3 +1,4 @@
+from typing import List
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -242,7 +243,9 @@ class EdgeRDE(BaseMethod):
         #self.adata.uns["fit"] = fit
         self.fit = fit
         
-    def _test_single_contrast(self, contrast) -> pd.DataFrame:
+        
+        
+    def _test_single_contrast(self, contrast: List[str]) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
@@ -303,7 +306,6 @@ class EdgeRDE(BaseMethod):
         
         ## -- Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
-        de_res["contrast"] = [contrast_i]*de_res.shape[0]
-        
-        return pd.concat(de_res).sort_values("PValue")
+
+        return de_res.sort_values("PValue")
 

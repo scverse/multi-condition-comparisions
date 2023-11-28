@@ -1,1 +1,1 @@
-from . import de
+from . import de, de_methods
