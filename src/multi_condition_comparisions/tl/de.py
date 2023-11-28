@@ -29,7 +29,7 @@ class BaseMethod(ABC):
         design
             Model design. Can be either a design matrix, a formulaic formula.
         mask
-            a column in adata.var that contains a boolean mask with selected features.
+            A column in adata.var that contains a boolean mask with selected features.
         layer
             Layer to use in fit(). If None, use the X matrix.
         **kwargs
@@ -160,6 +160,13 @@ class StatsmodelsDE(BaseMethod):
         **kwargs
             Additional arguments for fitting the specific method. In particular, this
             is where you can specify the family for GLM.
+
+        Example
+        -------
+        >>> import statsmodels.api as sm
+        >>> model = StatsmodelsDE(adata, design="~condition")
+        >>> model.fit(sm.GLM, family=sm.families.NegativeBinomial(link=sm.families.links.Log()))
+        >>> results = model.test_contrasts(np.array([0, 1]))
         """
         self.models = []
         for var in tqdm(self.adata.var_names):
