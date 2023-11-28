@@ -4,7 +4,7 @@ import pytest
 from pydeseq2.utils import load_example_data
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import BaseMethod
+from multi_condition_comparisions.tl.de import BaseMethod, PyDESeq2DE, StatsmodelsDE
 
 
 def test_package_has_version():
@@ -28,7 +28,7 @@ def test_adata():
     return ad.AnnData(X=counts, obs=metadata)
 
 
-@pytest.param("method_class", [])
+@pytest.mark.parametrize("method_class", [StatsmodelsDE, PyDESeq2DE])
 def test_de(method_class: BaseMethod):
     """Check that the method can be initialized and fitted and that the test_contrast
     method returns a dataframe with the correct number of rows"""
