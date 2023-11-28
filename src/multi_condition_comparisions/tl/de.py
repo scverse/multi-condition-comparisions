@@ -3,12 +3,13 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-import patsy
+from formulaic import model_matrix
+import formulaic.model_matrix
 from anndata import AnnData
 
 
-class DeMethod(ABC):
-    def __init__(self, adata: AnnData, design: str | np.ndarray | Literal["patsy"], mask: str):
+class MethodBase(ABC):
+    def __init__(self, adata: AnnData, design: str | np.ndarray, mask: str, layer: str | None = None, **kwargs):
         """
         Initialize the method
 
@@ -17,12 +18,18 @@ class DeMethod(ABC):
         adata
             AnnData object, usually pseudobulked.
         design
-            Model design. Can be either a design matrix, a patsy formula.
+            Model design. Can be either a design matrix, a formulaic formula.
         mask
             a column in adata.var that contains a boolean mask with selected features.
+        **kwargs
+            Keyword arguments specific to the method implementation
         """
-        self.adata = adata
-        self.design = patsy.dmmatrix(design, adata.obs)
+        self.adata = adata[:, adata.var[mask]]
+        self.layer = layer
+        if isinstance(design, str):
+            self.design = model_matrix(design, adata.obs)
+        else:
+            self.design = design
 
     @abstractmethod
     def fit(self, **kwargs) -> None:
@@ -86,10 +93,15 @@ class DeMethod(ABC):
         **kwargs
 
         """
-        for factor, factor_info in self.design.design_info.factor_infos.items():
-            pass
+        if not isinstance(self.design, formulaic.model_matrix.ModelMatrix):
+            raise RuntimeError(
+                "Building contrasts with `cond` only works if you specified the model using a "
+                "formulaic formula. Please manually provide a contrast vector."
+            )
+        # for factor, factor_info in self.design.design_info.factor_infos.items():
+        #     pass
 
-        patsy.build_design_matrices(self.design.design_info, kwargs)
+        # patsy.build_design_matrices(self.design.design_info, kwargs)
         raise NotImplementedError
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
