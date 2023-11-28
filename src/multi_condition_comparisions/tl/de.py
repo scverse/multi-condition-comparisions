@@ -7,8 +7,17 @@ import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
+from pandas import DataFrame
 from tqdm.auto import tqdm
 
+import rpy2.robjects.pandas2ri
+import rpy2.robjects.numpy2ri
+from rpy2.robjects.packages import STAP
+import rpy2.robjects as ro
+from rpy2.robjects import pandas2ri
+# if you have a different version of rpy2 you may not need these two lines
+rpy2.robjects.pandas2ri.activate()
+rpy2.robjects.numpy2ri.activate()
 
 class BaseMethod(ABC):
     def __init__(
@@ -192,3 +201,74 @@ class StatsmodelsDE(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue")
+
+class DESeq2DE(BaseMethod):
+    """Differential expression test using DESeq2 (R/BioC implementation)"""
+
+    def fit(self) -> DataFrame:
+        '''
+        Run differential expression using DESeq2.
+        '''
+
+        ## Get anndata components
+        data_X = self.adata.X.toarray().copy()
+        data_obs = self.adata.obs.copy()
+        data_vars = self.adata.var_names.copy()
+
+        ## Set up the R code
+        deseq2_fit_str = f'''
+            library(DESeq2)
+            
+            fit_deseq <- function(args){{
+                data_X <- t(args[[1]])
+                data_obs <- args[[2]]
+                rownames(data_X) <- args[[3]]
+                
+                design <- as.matrix(args[[4]])
+
+                # Prepare the data
+                deseq_data <- DESeqDataSetFromMatrix(countData = data_X,
+                                                    colData = data_obs,
+                                                    design = design)
+
+                # Fit the DESeq2 model
+                deseq_model <- DESeq(deseq_data)
+                return(deseq_model)
+                }}
+            '''
+
+        r_pkg = STAP(deseq2_fit_str, "r_pkg")
+        
+        # Run DE
+        de_model = r_pkg.fit_deseq([data_X, data_obs, data_vars, self.design])
+        self.de_model = de_model
+
+    def _test_single_contrast(self, contrast, **kwargs) -> DataFrame:
+        '''
+        Run differential expression using DESeq2.
+        '''
+
+        deseq2_test_str = f'''
+            library(DESeq2)
+            test_deseq <- function(args){{
+                deseq_model <- args[[1]]
+                contrast <- args[[2]]
+                # Make the comparison
+                deseq_result <- as.data.frame( results(deseq_model, contrast=contrast) )
+
+                #print(deseq_result[1:5,])  For debugging
+                #print(rownames(deseq_result)[1:5]) For debugging
+
+                return(deseq_result)
+            }}
+            '''
+        r_pkg = STAP(deseq2_test_str, "r_pkg")
+        de_res_df = r_pkg.test_deseq([self.de_model, contrast])
+
+        with (ro.default_converter + pandas2ri.converter).context():
+            pd_result = ro.conversion.get_conversion().rpy2py(de_res_df)
+
+        pd_result["var_name"] = pd_result.index
+        pd_result = pd_result.reset_index(drop=True)
+        
+        return pd_result
