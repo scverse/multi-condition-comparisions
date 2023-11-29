@@ -42,7 +42,9 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: "pip"
           cache-dependency-path: "**/pyproject.toml"
-
+      - name: Install R dependencies
+        run: |
+          Rscript --vanilla -e "install.packages("pak"); pak::pkg_install("DESeq2")"
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip wheel
