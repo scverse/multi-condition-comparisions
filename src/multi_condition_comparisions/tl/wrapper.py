@@ -7,12 +7,8 @@ from anndata import AnnData
 
 from multi_condition_comparisions.tl.de import BaseMethod
 
-def run_de(adata: AnnData,
-           contrasts: str | List[str] | dict[str, np.ndarray],
-           method: str,
-           design: str | np.ndarray | None = None,
-           mask: str | None = None,
-           layer: str | None = None, **kwargs):
+def run_de(adata: AnnData, contrasts: str | List[str] | dict[str, np.ndarray],
+           method: str, design: str | np.ndarray | None = None,mask: str | None = None,layer: str | None = None, **kwargs):
     '''
     Wrapper function to run differential expression analysis.
 
@@ -37,7 +33,7 @@ def run_de(adata: AnnData,
     
     ## TODO: Extract design matrix with Cond function
     if design is not None:
-        design = 
+        design = np.array()
         
     ## TODO: Extract contrasts based on Cond function
     if not isinstance(contrasts, dict):
@@ -45,7 +41,7 @@ def run_de(adata: AnnData,
 
     
     ## TODO: Get pseudobulk adata with pseudobulk function
-    pb_adata =
+    pb_adata = AnnData()
     
     ## Initialise object
     pb_adata = BaseMethod(pb_adata, design, mask = mask, layer= layer)

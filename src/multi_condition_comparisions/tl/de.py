@@ -2,6 +2,7 @@ from typing import List
 from abc import ABC, abstractmethod
 
 import numpy as np
+from numpy import inf
 import pandas as pd
 import scanpy as sc
 import statsmodels.api as sm
@@ -211,10 +212,6 @@ class EdgeRDE(BaseMethod):
             Keyword arguments specific to glmQLFit()
         '''
         
-        ## For running in notebook
-        #pandas2ri.activate()
-        #rpy2.robjects.numpy2ri.activate()
-        
         ## -- Check installations
         try:
             import rpy2.robjects.pandas2ri
@@ -243,10 +240,7 @@ class EdgeRDE(BaseMethod):
                     "edgeR, BiocParallel, RhpcBLASctl"
                 )
 
-        ## -- Feature selection
-        #if mask is not None:
-        #    self.adata = self.adata[:,~self.adata.var[mask]]
-        
+
         ## -- Convert dataframe
         with localconverter(ro.default_converter + numpy2ri.converter):
             expr = self.adata.X if self.layer is None else self.adata.layers[self.layer]
@@ -280,7 +274,7 @@ class EdgeRDE(BaseMethod):
         
         
         
-    def _test_single_contrast(self, contrast: List[str]) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast: List[str], **kwargs) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
@@ -290,14 +284,6 @@ class EdgeRDE(BaseMethod):
             numpy array of integars indicating contrast
             i.e. [-1, 0, 1, 0, 0]
         """
-        
-        ## For running in notebook
-        #pandas2ri.activate()
-        #rpy2.robjects.numpy2ri.activate()
-        
-        ## -- To do:
-        ##  parse **kwargs to R function
-        ##  Fix mask for .fit()
         
         ## -- Check installations
         try:
@@ -332,12 +318,9 @@ class EdgeRDE(BaseMethod):
         ro.globalenv["contrast_vec"] = contrast_vec_r
         
         ## -- Test contrast with R
-        ro.r(
-            """
-            test = edgeR::glmQLFTest(fit, contrast=contrast_vec)
-            de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH", sort.by="PValue")$table 
-            """
-        )
+        test = edger.glmQLFTest(fit, contrast=contrast_vec_r, **kwargs)
+        de_res = edger.topTags(test, n=inf, adjust_method="BH", sort_by="PValue")
+        ro.globalenv["de_res"] = de_res[0]
         
         ## -- Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
