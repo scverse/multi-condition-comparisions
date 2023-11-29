@@ -196,6 +196,7 @@ class StatsmodelsDE(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
+      
 
 class EdgeRDE(BaseMethod):
     """Differential expression test using EdgeR"""
@@ -342,5 +343,4 @@ class EdgeRDE(BaseMethod):
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
         return de_res
-
 
