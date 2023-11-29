@@ -175,6 +175,9 @@ class BaseMethod(ABC):
 class StatsmodelsDE(BaseMethod):
     """Differential expression test using a statsmodels linear regression"""
 
+    def _check_counts(self) -> bool:
+        return True
+
     def fit(
         self,
         regression_model: sm.OLS | sm.GLM = sm.OLS,
@@ -227,6 +230,10 @@ class StatsmodelsDE(BaseMethod):
 
 class EdgeRDE(BaseMethod):
     """Differential expression test using EdgeR"""
+
+    def _check_counts(self) -> bool:
+        # TODO: fill in with acutal EdgeR requirements
+        return True
 
     def fit(self, **kwargs):  # adata, design, mask, layer
         """
