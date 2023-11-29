@@ -42,6 +42,18 @@ class BaseMethod(ABC):
         self.adata = adata
         if mask is not None:
             self.adata = self.adata[:, self.adata.var[mask]]
+
+        # Do some sanity checks on the input. Do them after the mask is applied.
+
+        # Check that counts have no NaN or Inf values.
+        if np.any(np.isnan(self.adata.X)) or np.any(np.isinf(self.adata.X)):
+            raise ValueError("Counts cannot contain NaN or Inf values.")
+        # Check that counts are non-negative integers.
+        if np.any(self.adata.X < 0) or not np.issubdtype(
+            self.adata.X.dtype, np.integer
+        ):
+            raise ValueError("Counts must be non-negative integers.")
+
         self.layer = layer
         if isinstance(design, str):
             self.design = model_matrix(design, adata.obs)
@@ -69,7 +81,9 @@ class BaseMethod(ABC):
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         ...
 
-    def test_contrasts(self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
+    def test_contrasts(
+        self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs
+    ) -> pd.DataFrame:
         """
         Conduct a specific test
 
@@ -86,7 +100,9 @@ class BaseMethod(ABC):
             contrasts = {None: contrasts}
         results = []
         for name, contrast in contrasts.items():
-            results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
+            results.append(
+                self._test_single_contrast(contrast, **kwargs).assign(contrast=name)
+            )
         return pd.concat(results)
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
@@ -196,25 +212,25 @@ class StatsmodelsDE(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
-      
+
 
 class EdgeRDE(BaseMethod):
     """Differential expression test using EdgeR"""
 
-    def fit(self, **kwargs): #adata, design, mask, layer
-        '''
-        Fit model using edgeR. Note: this creates its own adata object for downstream. 
+    def fit(self, **kwargs):  # adata, design, mask, layer
+        """
+        Fit model using edgeR. Note: this creates its own adata object for downstream.
 
         Params:
         ----------
         **kwargs
             Keyword arguments specific to glmQLFit()
-        '''
-        
+        """
+
         ## For running in notebook
-        #pandas2ri.activate()
-        #rpy2.robjects.numpy2ri.activate()
-        
+        # pandas2ri.activate()
+        # rpy2.robjects.numpy2ri.activate()
+
         ## -- Check installations
         try:
             import rpy2.robjects.pandas2ri
@@ -223,13 +239,13 @@ class EdgeRDE(BaseMethod):
             from rpy2.robjects import pandas2ri, numpy2ri
             from rpy2.robjects.conversion import localconverter
             from rpy2 import robjects as ro
-            
+
             pandas2ri.activate()
             rpy2.robjects.numpy2ri.activate()
-            
+
         except ImportError:
             raise ImportError("edger requires rpy2 to be installed. ")
-            
+
         try:
             base = importr("base")
             edger = importr("edgeR")
@@ -239,14 +255,14 @@ class EdgeRDE(BaseMethod):
             bcparallel = importr("BiocParallel")
         except ImportError:
             raise ImportError(
-                    "edgeR requires a valid R installation with the following packages: "
-                    "edgeR, BiocParallel, RhpcBLASctl"
-                )
+                "edgeR requires a valid R installation with the following packages: "
+                "edgeR, BiocParallel, RhpcBLASctl"
+            )
 
         ## -- Feature selection
-        #if mask is not None:
+        # if mask is not None:
         #    self.adata = self.adata[:,~self.adata.var[mask]]
-        
+
         ## -- Convert dataframe
         with localconverter(ro.default_converter + numpy2ri.converter):
             expr = self.adata.X if self.layer is None else self.adata.layers[self.layer]
@@ -255,14 +271,13 @@ class EdgeRDE(BaseMethod):
             else:
                 expr = expr.T
 
-        expr_r = ro.conversion.py2rpy(pd.DataFrame(expr, 
-                                                   index=self.adata.var_names, 
-                                                   columns=self.adata.obs_names))
+        expr_r = ro.conversion.py2rpy(
+            pd.DataFrame(expr, index=self.adata.var_names, columns=self.adata.obs_names)
+        )
 
         ## -- Convert to DGE
-        dge = edger.DGEList(counts=expr_r, 
-                            samples=self.adata.obs)
-        
+        dge = edger.DGEList(counts=expr_r, samples=self.adata.obs)
+
         ## -- Run EdgeR
         logging.info("Calculating NormFactors")
         dge = edger.calcNormFactors(dge)
@@ -275,11 +290,9 @@ class EdgeRDE(BaseMethod):
 
         ## -- Save object
         ro.globalenv["fit"] = fit
-        #self.adata.uns["fit"] = fit
+        # self.adata.uns["fit"] = fit
         self.fit = fit
-        
-        
-        
+
     def _test_single_contrast(self, contrast: List[str]) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
@@ -290,15 +303,15 @@ class EdgeRDE(BaseMethod):
             numpy array of integars indicating contrast
             i.e. [-1, 0, 1, 0, 0]
         """
-        
+
         ## For running in notebook
-        #pandas2ri.activate()
-        #rpy2.robjects.numpy2ri.activate()
-        
+        # pandas2ri.activate()
+        # rpy2.robjects.numpy2ri.activate()
+
         ## -- To do:
         ##  parse **kwargs to R function
         ##  Fix mask for .fit()
-        
+
         ## -- Check installations
         try:
             import rpy2.robjects.pandas2ri
@@ -307,10 +320,10 @@ class EdgeRDE(BaseMethod):
             from rpy2.robjects import pandas2ri, numpy2ri
             from rpy2.robjects.conversion import localconverter
             from rpy2 import robjects as ro
-            
+
         except ImportError:
             raise ImportError("edger requires rpy2 to be installed. ")
-            
+
         try:
             base = importr("base")
             edger = importr("edgeR")
@@ -320,27 +333,26 @@ class EdgeRDE(BaseMethod):
             bcparallel = importr("BiocParallel")
         except ImportError:
             raise ImportError(
-                    "edgeR requires a valid R installation with the following packages: "
-                    "edgeR, BiocParallel, RhpcBLASctl"
-                )
+                "edgeR requires a valid R installation with the following packages: "
+                "edgeR, BiocParallel, RhpcBLASctl"
+            )
 
         ## -- Get fit object
         fit = self.fit
-        
+
         ## -- Convert vector to R
         contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast))
         ro.globalenv["contrast_vec"] = contrast_vec_r
-        
+
         ## -- Test contrast with R
         ro.r(
             """
             test = edgeR::glmQLFTest(fit, contrast=contrast_vec)
-            de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH", sort.by="PValue")$table 
+            de_res =  edgeR::topTags(test, n=Inf, adjust.method="BH", sort.by="PValue")$table
             """
         )
-        
+
         ## -- Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
         return de_res
-
