@@ -23,6 +23,7 @@ jobs:
         include:
           - os: ubuntu-latest
             python: "3.10"
+            r: "release"
           - os: ubuntu-latest
             python: "3.10"
             pip-flags: "--pre"
