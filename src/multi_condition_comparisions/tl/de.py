@@ -46,6 +46,9 @@ class BaseMethod(ABC):
         # Check that counts have no NaN or Inf values.
         if np.any(np.isnan(self.adata.X)) or np.any(np.isinf(self.adata.X)):
             raise ValueError("Counts cannot contain NaN or Inf values.")
+        # Check that counts have numeric values.
+        if not np.issubdtype(self.adata.X.dtype, np.number):
+            raise ValueError("Counts must be numeric.")
 
         self.layer = layer
         if isinstance(design, str):
