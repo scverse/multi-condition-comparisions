@@ -27,6 +27,7 @@ jobs:
           - os: ubuntu-latest
             python: "3.10"
             pip-flags: "--pre"
+            r: "release"
 
     env:
       OS: ${{ matrix.os }}
