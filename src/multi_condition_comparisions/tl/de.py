@@ -204,7 +204,7 @@ class StatsmodelsDE(BaseMethod):
                     "fold_change": t_test.effect.item(),
                 }
             )
-        return pd.DataFrame(res).sort_values("pvalue")
+        return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
 
 class DESeq2DE(BaseMethod):
     """Differential expression test using DESeq2 (R/BioC implementation)"""
@@ -215,7 +215,10 @@ class DESeq2DE(BaseMethod):
         '''
 
         ## Get anndata components
-        data_X = self.adata.X.toarray().copy()
+        if issparse(self.adata.X):
+            data_X = self.adata.X.toarray().copy()
+        else:
+            data_X = self.adata.X.copy()
         data_obs = self.adata.obs.copy()
         data_vars = self.adata.var_names.copy()
 
