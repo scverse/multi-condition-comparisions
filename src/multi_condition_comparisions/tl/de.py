@@ -181,7 +181,12 @@ class PyDESeq2DE(BaseMethod):
         '''
         
         inference = DefaultInference(n_cpus=3)
-        dds = DeseqDataSet(adata=self.adata, design_factors='condition', refit_cooks=True, inference=inference, **kwargs)
+        covars = self.design.columns.tolist()
+        if ('Intercept' not in covars):
+            warnings.warn("Warning: Pydeseq is hard-coded to use Intercept, please include intercept into the model")
+        processed_covars = [col.split('[')[0] for col in covars if col != 'Intercept']
+        dds = DeseqDataSet(adata=self.adata, design_factors=processed_covars, refit_cooks=True,
+                           inference=inference, **kwargs)
        ###workaround code to insert design matrix  
         des_mtx_cols = dds.obsm['design_matrix'].columns
         dds.obsm['design_matrix'] = self.design
