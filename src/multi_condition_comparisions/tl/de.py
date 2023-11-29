@@ -50,6 +50,11 @@ class BaseMethod(ABC):
         if not np.issubdtype(self.adata.X.dtype, np.number):
             raise ValueError("Counts must be numeric.")
 
+        # Check that counts are valid for the specific method.
+        if not self._check_counts():
+            # TODO: return a more informative error message depending on the actual issue
+            raise ValueError("Counts are not valid for this method.")
+
         self.layer = layer
         if isinstance(design, str):
             self.design = model_matrix(design, adata.obs)
@@ -60,6 +65,20 @@ class BaseMethod(ABC):
     def variables(self):
         """Get the names of the variables used in the model definition"""
         return self.design.model_spec.variables_by_source["data"]
+
+    @abstractmethod
+    def _check_counts(self) -> bool:
+        """
+        Check that counts are valid for the specific method.
+
+        Different methods may have different requirements.
+
+        Returns
+        -------
+        bool
+            True if counts are valid, False otherwise.
+        """
+        ...
 
     @abstractmethod
     def fit(self, **kwargs) -> None:
