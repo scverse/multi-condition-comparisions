@@ -16,6 +16,7 @@ import rpy2.robjects.numpy2ri
 from rpy2.robjects.packages import STAP
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
+from rpy2.robjects.packages import importr
 # if you have a different version of rpy2 you may not need these two lines
 rpy2.robjects.pandas2ri.activate()
 rpy2.robjects.numpy2ri.activate()
@@ -213,7 +214,13 @@ class DESeq2DE(BaseMethod):
         '''
         Run differential expression using DESeq2.
         '''
-
+        try:
+            deseq2 = importr("DESeq2")
+        except ImportError:
+            raise ImportError(
+                    "DESeq2DE requires a valid R installation with the following packages: "
+                    "DESeq2"
+                )
         ## Get anndata components
         if issparse(self.adata.X):
             data_X = self.adata.X.toarray().copy()
