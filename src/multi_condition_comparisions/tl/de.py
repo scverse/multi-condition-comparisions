@@ -10,6 +10,7 @@ from formulaic.model_matrix import ModelMatrix
 from scanpy import logging
 from scipy.sparse import issparse
 from tqdm.auto import tqdm
+import re
 
 
 class BaseMethod(ABC):
@@ -146,18 +147,39 @@ class BaseMethod(ABC):
         **kwargs
 
         """
+
+        def _get_var_from_colname(colname):
+            regex = re.compile(r"^.+\[T\.(.+)\]$")
+            return regex.search(colname).groups()[0]
+
         if not isinstance(self.design, ModelMatrix):
             raise RuntimeError(
                 "Building contrasts with `cond` only works if you specified the model using a "
                 "formulaic formula. Please manually provide a contrast vector."
             )
+        cond_dict = kwargs
+        for var in self.variables:
+            all_categories = set(self.design.model_spec.encoder_state[var][1]["categories"])
+            if var in kwargs:
+                if kwargs[var] not in all_categories:
+                    raise ValueError(
+                        f"You specified a non-existant category for {var}. Possible categories: {', '.join(all_categories)}"
+                    )
+            else:
+                if self.design.model_spec.encoder_state[var][0].value != "categorical":
+                    cond_dict[var] = 0
+                else:
+                    var_cols = self.design.columns[self.design.columns.str.startswith(f"{var}[")]
 
-        # TODO pre-fill the dictionary with baseline values for keys that are not specified
-        # TODO not sure how that works for continuous variables
-        # for factor, factor_info in self.design.design_info.factor_infos.items():
-        #     pass
+                    present_categories = {_get_var_from_colname(x) for x in var_cols}
+                    dropped_category = all_categories - present_categories
+                    print(all_categories)
+                    print(present_categories)
+                    assert len(dropped_category) == 1
+                    cond_dict[var] = next(iter(dropped_category))
 
-        return self.design.model_spec.get_model_matrix(pd.DataFrame([kwargs]))
+        df = pd.DataFrame([kwargs])
+        return self.design.model_spec.get_model_matrix(df)
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
         """
