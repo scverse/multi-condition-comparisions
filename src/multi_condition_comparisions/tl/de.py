@@ -255,7 +255,10 @@ class StatsmodelsDE(BaseMethod):
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
 class PyDESeq2DE(BaseMethod):
     """Differential expression test using a PyDESeq2"""
-
+    def _check_counts(self) -> bool:
+        ## implement check for the integers (i.e. raw counts)
+        return True
+    
     def fit(self, **kwargs) -> pd.DataFrame:
         '''
         Fit dds model using pydeseq2. Note: this creates its own adata object for downstream.
@@ -441,4 +444,3 @@ class EdgeRDE(BaseMethod):
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
         return de_res
->>>>>>> 3857947c25d5afa889c7c92ea355864c3b3c5f1b

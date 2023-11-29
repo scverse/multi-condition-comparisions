@@ -31,7 +31,6 @@ def test_de(test_adata, method_class: BaseMethod, kwargs):
     res_df = method.test_contrasts(np.array([0, 1]))
     # Check that the result has the correct number of rows
     assert len(res_df) == test_adata.n_vars
-<<<<<<< HEAD
 
 def test_pydeseq2de(test_adata):
     """Check that the pyDESeq2 method can be initialized and fitted and that the test_contrast
@@ -57,12 +56,9 @@ def test_pydeseq2de2(test_adata):
     method.fit()
     res_df = method.test_contrasts(['condition1', 'A', 'B'])
     assert len(res_df) == test_adata.n_vars
-
-=======
     # Check that the index of the result matches the var_names of the adata
     tm.assert_index_equal(test_adata.var_names, res_df.index, check_order=False, check_names=False)
     # Check that there is a p-value column
     assert "pvalue" in res_df.columns
     # Check that p-values are between 0 and 1
     assert np.all((0 <= res_df["pvalue"]) & (res_df["pvalue"] <= 1))
->>>>>>> 3857947c25d5afa889c7c92ea355864c3b3c5f1b
