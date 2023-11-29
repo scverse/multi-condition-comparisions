@@ -48,3 +48,17 @@ def test_pydeseq2de(test_adata):
     method.fit()
     res_df = method.test_contrasts(['condition', 'A', 'B'])
     assert len(res_df) == test_adata.n_vars
+
+def test_pydeseq2de2(test_adata):
+    """Check that the pyDESeq2 method can be initialized with a different covariate name and fitted and that the test_contrast
+    method returns a dataframe with the correct number of rows.
+
+    Now this is a separate  
+    
+    """
+    test_adata.obs['condition1'] = test_adata.obs['condition'].copy()
+    method = PyDESeq2DE(adata=test_adata, design="~condition1+group")   
+    method.fit()
+    res_df = method.test_contrasts(['condition1', 'A', 'B'])
+    assert len(res_df) == test_adata.n_vars
+
