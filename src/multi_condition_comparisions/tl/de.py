@@ -148,6 +148,7 @@ class BaseMethod(ABC):
 
         """
 
+        # TODO this is hacky - reach out to formulaic authors how to do this properly
         def _get_var_from_colname(colname):
             regex = re.compile(r"^.+\[T\.(.+)\]$")
             return regex.search(colname).groups()[0]
