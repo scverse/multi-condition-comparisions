@@ -1,4 +1,3 @@
-from typing import List
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -8,10 +7,9 @@ import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
-from tqdm.auto import tqdm
-
 from scanpy import logging
 from scipy.sparse import issparse
+from tqdm.auto import tqdm
 
 
 class BaseMethod(ABC):
@@ -48,11 +46,6 @@ class BaseMethod(ABC):
         # Check that counts have no NaN or Inf values.
         if np.any(np.isnan(self.adata.X)) or np.any(np.isinf(self.adata.X)):
             raise ValueError("Counts cannot contain NaN or Inf values.")
-        # Check that counts are non-negative integers.
-        if np.any(self.adata.X < 0) or not np.issubdtype(
-            self.adata.X.dtype, np.integer
-        ):
-            raise ValueError("Counts must be non-negative integers.")
 
         self.layer = layer
         if isinstance(design, str):
@@ -81,9 +74,7 @@ class BaseMethod(ABC):
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         ...
 
-    def test_contrasts(
-        self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs
-    ) -> pd.DataFrame:
+    def test_contrasts(self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
         Conduct a specific test
 
@@ -100,9 +91,7 @@ class BaseMethod(ABC):
             contrasts = {None: contrasts}
         results = []
         for name, contrast in contrasts.items():
-            results.append(
-                self._test_single_contrast(contrast, **kwargs).assign(contrast=name)
-            )
+            results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
         return pd.concat(results)
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
@@ -226,19 +215,18 @@ class EdgeRDE(BaseMethod):
         **kwargs
             Keyword arguments specific to glmQLFit()
         """
-
         ## For running in notebook
         # pandas2ri.activate()
         # rpy2.robjects.numpy2ri.activate()
 
         ## -- Check installations
         try:
-            import rpy2.robjects.pandas2ri
             import rpy2.robjects.numpy2ri
-            from rpy2.robjects.packages import importr
-            from rpy2.robjects import pandas2ri, numpy2ri
-            from rpy2.robjects.conversion import localconverter
+            import rpy2.robjects.pandas2ri
             from rpy2 import robjects as ro
+            from rpy2.robjects import numpy2ri, pandas2ri
+            from rpy2.robjects.conversion import localconverter
+            from rpy2.robjects.packages import importr
 
             pandas2ri.activate()
             rpy2.robjects.numpy2ri.activate()
@@ -255,8 +243,7 @@ class EdgeRDE(BaseMethod):
             bcparallel = importr("BiocParallel")
         except ImportError:
             raise ImportError(
-                "edgeR requires a valid R installation with the following packages: "
-                "edgeR, BiocParallel, RhpcBLASctl"
+                "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
             )
 
         ## -- Feature selection
@@ -271,9 +258,7 @@ class EdgeRDE(BaseMethod):
             else:
                 expr = expr.T
 
-        expr_r = ro.conversion.py2rpy(
-            pd.DataFrame(expr, index=self.adata.var_names, columns=self.adata.obs_names)
-        )
+        expr_r = ro.conversion.py2rpy(pd.DataFrame(expr, index=self.adata.var_names, columns=self.adata.obs_names))
 
         ## -- Convert to DGE
         dge = edger.DGEList(counts=expr_r, samples=self.adata.obs)
@@ -293,7 +278,7 @@ class EdgeRDE(BaseMethod):
         # self.adata.uns["fit"] = fit
         self.fit = fit
 
-    def _test_single_contrast(self, contrast: List[str]) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast: list[str]) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
@@ -303,7 +288,6 @@ class EdgeRDE(BaseMethod):
             numpy array of integars indicating contrast
             i.e. [-1, 0, 1, 0, 0]
         """
-
         ## For running in notebook
         # pandas2ri.activate()
         # rpy2.robjects.numpy2ri.activate()
@@ -314,12 +298,12 @@ class EdgeRDE(BaseMethod):
 
         ## -- Check installations
         try:
-            import rpy2.robjects.pandas2ri
             import rpy2.robjects.numpy2ri
-            from rpy2.robjects.packages import importr
-            from rpy2.robjects import pandas2ri, numpy2ri
-            from rpy2.robjects.conversion import localconverter
+            import rpy2.robjects.pandas2ri
             from rpy2 import robjects as ro
+            from rpy2.robjects import numpy2ri, pandas2ri
+            from rpy2.robjects.conversion import localconverter
+            from rpy2.robjects.packages import importr
 
         except ImportError:
             raise ImportError("edger requires rpy2 to be installed. ")
@@ -333,8 +317,7 @@ class EdgeRDE(BaseMethod):
             bcparallel = importr("BiocParallel")
         except ImportError:
             raise ImportError(
-                "edgeR requires a valid R installation with the following packages: "
-                "edgeR, BiocParallel, RhpcBLASctl"
+                "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
             )
 
         ## -- Get fit object
