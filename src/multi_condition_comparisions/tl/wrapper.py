@@ -5,6 +5,7 @@ import pandas as pd
 import scanpy as sc
 from anndata import AnnData
 
+from multi_condition_comparisions.tl.de import BaseMethod
 
 def run_de(adata: AnnData,
            contrasts: str | List[str] | dict[str, np.ndarray],
