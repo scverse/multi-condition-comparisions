@@ -12,7 +12,7 @@ except Exception:  # noqa: BLE001
     r_dependency = None
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import BaseMethod, StatsmodelsDE
+from multi_condition_comparisions.tl.de import BaseMethod, StatsmodelsDE, DESeq2DE
 
 
 def test_package_has_version():
