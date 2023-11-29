@@ -269,7 +269,6 @@ class EdgeRDE(BaseMethod):
 
         ## -- Save object
         ro.globalenv["fit"] = fit
-        #self.adata.uns["fit"] = fit
         self.fit = fit
         
         
