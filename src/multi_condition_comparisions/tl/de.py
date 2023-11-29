@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -10,7 +11,6 @@ from formulaic.model_matrix import ModelMatrix
 from scanpy import logging
 from scipy.sparse import issparse
 from tqdm.auto import tqdm
-import re
 
 
 class BaseMethod(ABC):
@@ -159,22 +159,23 @@ class BaseMethod(ABC):
             )
         cond_dict = kwargs
         for var in self.variables:
-            all_categories = set(self.design.model_spec.encoder_state[var][1]["categories"])
+            var_type = self.design.model_spec.encoder_state[var][0].value
+            if var_type == "categorical":
+                all_categories = set(self.design.model_spec.encoder_state[var][1]["categories"])
             if var in kwargs:
-                if kwargs[var] not in all_categories:
+                if var_type == "categorical" and kwargs[var] not in all_categories:
                     raise ValueError(
                         f"You specified a non-existant category for {var}. Possible categories: {', '.join(all_categories)}"
                     )
             else:
-                if self.design.model_spec.encoder_state[var][0].value != "categorical":
+                # fill with default values
+                if var_type != "categorical":
                     cond_dict[var] = 0
                 else:
                     var_cols = self.design.columns[self.design.columns.str.startswith(f"{var}[")]
 
                     present_categories = {_get_var_from_colname(x) for x in var_cols}
                     dropped_category = all_categories - present_categories
-                    print(all_categories)
-                    print(present_categories)
                     assert len(dropped_category) == 1
                     cond_dict[var] = next(iter(dropped_category))
 
