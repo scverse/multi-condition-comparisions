@@ -5,8 +5,14 @@ import statsmodels.api as sm
 from pandas import testing as tm
 from pydeseq2.utils import load_example_data
 
+try:
+    from rpy2.robjects.packages import importr
+    r_dependency = importr("DESeq2")
+except Exception:  # noqa: BLE001
+    r_dependency = None
+
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import BaseMethod, StatsmodelsDE
+from multi_condition_comparisions.tl.de import BaseMethod, StatsmodelsDE, DESeq2DE
 
 
 def test_package_has_version():
@@ -40,6 +46,8 @@ def test_adata():
             StatsmodelsDE,
             {"regression_model": sm.GLM, "family": sm.families.NegativeBinomial()},
         ),
+        # DESeq2 basic
+        (DESeq2DE, {}),
     ],
 )
 def test_de(test_adata, method_class: BaseMethod, kwargs):
