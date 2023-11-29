@@ -24,6 +24,7 @@ dependencies = [
     "pandas",
     "pydeseq2",
     "scanpy",
+    "rpy2",
     # for debug logging (referenced from the issue template)
     "session-info"
 ]
