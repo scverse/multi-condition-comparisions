@@ -37,8 +37,8 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: |
-            any::biocmanager
             any::statmod
+            any::DESeq2
           needs: check
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v4
@@ -53,9 +53,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install ${{ matrix.pip-flags }} ".[dev,test]"
-      - name: Install R package dependencies
-        run: |
-          Rscript --vanilla -e "install.packages(c('BiocManager', 'statmod'), repos='http://cran.us.r-project.org'); library('BiocManager'); BiocManager::install(c('edgeR', 'DESeq2'))"
       - name: Test
         env:
           MPLBACKEND: agg
