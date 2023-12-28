@@ -51,7 +51,7 @@ class BaseMethod(ABC):
         # Do some sanity checks on the input. Do them after the mask is applied.
 
         # Check that counts have no NaN or Inf values.
-        if np.any(adata.X < 0 or np.isnan(self.adata.X)) or np.any(np.isinf(self.adata.X)):
+        if np.any(np.logical_or(adata.X < 0, np.isnan(self.adata.X))) or np.any(np.isinf(self.adata.X)):
             raise ValueError("Counts cannot contain negative, NaN or Inf values.")
         # Check that counts have numeric values.
         if not np.issubdtype(self.adata.X.dtype, np.number):
@@ -132,7 +132,11 @@ class BaseMethod(ABC):
         for name, contrast in contrasts.items():
             results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
 
-        return pd.concat(results)
+        results = pd.concat(results)
+        results.rename(columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"},
+                       inplace=True)
+
+        return results
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
         """
