@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ${{ array.os }}
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash -e {0} # -e to fail on error
@@ -28,15 +28,15 @@ jobs:
             pip-flags: "--pre"
 
     env:
-      OS: ${{ array.os }}
-      PYTHON: ${{ array.python }}
+      OS: ${{ matrix.os }}
+      PYTHON: ${{ matrix.python }}
 
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python ${{ array.python }}
+      - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ array.python }}
+          python-version: ${{ matrix.python }}
           cache: "pip"
           cache-dependency-path: "**/pyproject.toml"
 
@@ -49,7 +49,7 @@ jobs:
       - name: Test
         env:
           MPLBACKEND: agg
-          PLATFORM: ${{ array.os }}
+          PLATFORM: ${{ matrix.os }}
           DISPLAY: :42
         run: |
           pytest -v --cov --color=yes

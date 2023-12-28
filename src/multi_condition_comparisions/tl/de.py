@@ -36,7 +36,7 @@ class BaseMethod(ABC):
         adata
             AnnData object, usually pseudobulked.
         design
-            Model design. Can be either a design array, a formulaic formula.Formulaic formula in the format 'x + z' or '~x+z'.
+            Model design. Can be either a design matrix, a formulaic formula.Formulaic formula in the format 'x + z' or '~x+z'.
         mask
             A column in adata.var that contains a boolean mask with selected features.
         layer
