@@ -1,5 +1,5 @@
-from typing import List
 import re
+import warnings
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -9,15 +9,17 @@ import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
-from scanpy import logging
-from scipy.sparse import issparse
-from tqdm.auto import tqdm
-
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
+from scanpy import logging
+from scipy.sparse import issparse, spmatrix
+from tqdm.auto import tqdm
+
 
 class BaseMethod(ABC):
+    """Base method for DE testing that is implemented per DE test."""
+
     def __init__(
         self,
         adata: AnnData,
@@ -34,11 +36,11 @@ class BaseMethod(ABC):
         adata
             AnnData object, usually pseudobulked.
         design
-            Model design. Can be either a design matrix, a formulaic formula.Formulaic formula in the format 'x + z' or '~x+z'. 
+            Model design. Can be either a design array, a formulaic formula.Formulaic formula in the format 'x + z' or '~x+z'.
         mask
             A column in adata.var that contains a boolean mask with selected features.
         layer
-            Layer to use in fit(). If None, use the X matrix.
+            Layer to use in fit(). If None, use the X array.
         **kwargs
             Keyword arguments specific to the method implementation
         """
@@ -49,22 +51,32 @@ class BaseMethod(ABC):
         # Do some sanity checks on the input. Do them after the mask is applied.
 
         # Check that counts have no NaN or Inf values.
-        if np.any(np.isnan(self.adata.X)) or np.any(np.isinf(self.adata.X)):
-            raise ValueError("Counts cannot contain NaN or Inf values.")
+        if np.any(adata.X < 0 or np.isnan(self.adata.X)) or np.any(np.isinf(self.adata.X)):
+            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
         # Check that counts have numeric values.
         if not np.issubdtype(self.adata.X.dtype, np.number):
             raise ValueError("Counts must be numeric.")
 
-        # Check that counts are valid for the specific method.
-        if not self._check_counts():
-            # TODO: return a more informative error message depending on the actual issue
-            raise ValueError("Counts are not valid for this method.")
+        self._check_counts()
 
         self.layer = layer
         if isinstance(design, str):
             self.design = model_matrix(design, adata.obs)
         else:
             self.design = design
+
+    def _check_count_matrix(self, array: np.ndarray | spmatrix, tolerance: float = 1e-6) -> bool:
+        if issparse(array):
+            if not array.data.dtype.kind == "i":
+                raise ValueError("Non-zero elements of the matrix must be integers.")
+
+            if not np.all(np.abs(array.data - np.round(array.data)) < tolerance):
+                raise ValueError("Non-zero elements of the matrix must be close to integer values.")
+        else:
+            if not array.dtype.kind == "i" or not np.all(np.abs(array - np.round(array)) < tolerance):
+                raise ValueError("Matrix must be a count matrix.")
+
+        return True
 
     @property
     def variables(self):
@@ -101,7 +113,7 @@ class BaseMethod(ABC):
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         ...
 
-    def test_contrasts(self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
+    def test_contrasts(self, contrasts: list[str] | dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
         Conduct a specific test
 
@@ -119,6 +131,7 @@ class BaseMethod(ABC):
         results = []
         for name, contrast in contrasts.items():
             results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
+
         return pd.concat(results)
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
@@ -185,6 +198,7 @@ class BaseMethod(ABC):
                     cond_dict[var] = next(iter(dropped_category))
 
         df = pd.DataFrame([kwargs])
+
         return self.design.model_spec.get_model_matrix(df)
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
@@ -204,7 +218,7 @@ class StatsmodelsDE(BaseMethod):
     """Differential expression test using a statsmodels linear regression"""
 
     def _check_counts(self) -> bool:
-        return True
+        return self._check_count_matrix(self.adata.X)
 
     def fit(
         self,
@@ -242,7 +256,7 @@ class StatsmodelsDE(BaseMethod):
 
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         res = []
-        for var, mod in zip(tqdm(self.adata.var_names), self.models):
+        for var, mod in zip(tqdm(self.adata.var_names), self.models, strict=False):
             t_test = mod.t_test(contrast)
             res.append(
                 {
@@ -254,78 +268,84 @@ class StatsmodelsDE(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
+
+
 class PyDESeq2DE(BaseMethod):
     """Differential expression test using a PyDESeq2"""
+
     def _check_counts(self) -> bool:
-        ## implement check for the integers (i.e. raw counts)
-        return True
-    
+        return self._check_count_matrix(self.adata.X)
+
     def fit(self, **kwargs) -> pd.DataFrame:
-        '''
-        Fit dds model using pydeseq2. Note: this creates its own adata object for downstream.
-        
+        """
+        Fit dds model using pydeseq2.
+
+        Note: this creates its own AnnData object for downstream processing.
+
         Params:
         ----------
         **kwargs
             Keyword arguments specific to DeseqDataSet()
-        '''
-        
+        """
         inference = DefaultInference(n_cpus=3)
         covars = self.design.columns.tolist()
-        if ('Intercept' not in covars):
-            warnings.warn("Warning: Pydeseq is hard-coded to use Intercept, please include intercept into the model")
-        processed_covars = [col.split('[')[0] for col in covars if col != 'Intercept']
-        dds = DeseqDataSet(adata=self.adata, design_factors=processed_covars, refit_cooks=True,
-                           inference=inference, **kwargs)
-       ###workaround code to insert design matrix  
-        des_mtx_cols = dds.obsm['design_matrix'].columns
-        dds.obsm['design_matrix'] = self.design
-        if dds.obsm['design_matrix'].shape[1] == len(des_mtx_cols):
-            dds.obsm['design_matrix'].columns =  des_mtx_cols.copy()
-        
+        if "Intercept" not in covars:
+            warnings.warn(
+                "Warning: Pydeseq is hard-coded to use Intercept, please include intercept into the model", stacklevel=2
+            )
+        processed_covars = [col.split("[")[0] for col in covars if col != "Intercept"]
+        dds = DeseqDataSet(
+            adata=self.adata, design_factors=processed_covars, refit_cooks=True, inference=inference, **kwargs
+        )
+        # workaround code to insert design array
+        des_mtx_cols = dds.obsm["design_matrix"].columns
+        dds.obsm["design_matrix"] = self.design
+        if dds.obsm["design_matrix"].shape[1] == len(des_mtx_cols):
+            dds.obsm["design_matrix"].columns = des_mtx_cols.copy()
+
         dds.deseq2()
         self.dds = dds
-        
-    def _test_single_contrast(self, contrast: List[str],  alpha = 0.05, **kwargs) -> pd.DataFrame:
-            """
-            Conduct a specific test and returns a data frame
 
-            Parameters
-            ----------
-            contrasts:
-                list of three strings of the form 
-                ["variable", "tested level", "reference level"]
-            alpha: p value threshold used for controlling fdr with 
-            independent hypothesis weighting  
-            kwargs: extra arguments to pass to DeseqStats()
-            """
-            stat_res = DeseqStats(self.dds, contrast = contrast, alpha=alpha, **kwargs)
-            stat_res.summary()
-            stat_res.p_values
-            return pd.DataFrame(stat_res.results_df).sort_values("padj")
-        
+    def _test_single_contrast(self, contrast: list[str], alpha=0.05, **kwargs) -> pd.DataFrame:
+        """
+        Conduct a specific test and returns a data frame
+
+        Parameters
+        ----------
+        contrasts:
+            list of three strings of the form
+            ["variable", "tested level", "reference level"]
+        alpha: p value threshold used for controlling fdr with
+        independent hypothesis weighting
+        kwargs: extra arguments to pass to DeseqStats()
+        """
+        stat_res = DeseqStats(self.dds, contrast=contrast, alpha=alpha, **kwargs)
+        stat_res.summary()
+        stat_res.p_values
+        return pd.DataFrame(stat_res.results_df).sort_values("padj")
+
 
 class EdgeRDE(BaseMethod):
     """Differential expression test using EdgeR"""
 
     def _check_counts(self) -> bool:
-        # TODO: fill in with acutal EdgeR requirements
-        return True
+        return self._check_count_matrix(self.adata.X)
 
     def fit(self, **kwargs):  # adata, design, mask, layer
         """
-        Fit model using edgeR. Note: this creates its own adata object for downstream.
+        Fit model using edgeR.
+
+        Note: this creates its own adata object for downstream.
 
         Params:
         ----------
         **kwargs
             Keyword arguments specific to glmQLFit()
         """
-        ## For running in notebook
+        # For running in notebook
         # pandas2ri.activate()
         # rpy2.robjects.numpy2ri.activate()
 
-        ## -- Check installations
         try:
             import rpy2.robjects.numpy2ri
             import rpy2.robjects.pandas2ri
@@ -338,25 +358,25 @@ class EdgeRDE(BaseMethod):
             rpy2.robjects.numpy2ri.activate()
 
         except ImportError:
-            raise ImportError("edger requires rpy2 to be installed. ")
+            raise ImportError("edger requires rpy2 to be installed. ") from None
 
         try:
-            base = importr("base")
+            importr("base")
             edger = importr("edgeR")
-            stats = importr("stats")
-            limma = importr("limma")
-            blasctl = importr("RhpcBLASctl")
-            bcparallel = importr("BiocParallel")
+            importr("stats")
+            importr("limma")
+            importr("RhpcBLASctl")
+            importr("BiocParallel")
         except ImportError:
             raise ImportError(
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
-            )
+            ) from None
 
-        ## -- Feature selection
+        # Feature selection
         # if mask is not None:
         #    self.adata = self.adata[:,~self.adata.var[mask]]
 
-        ## -- Convert dataframe
+        # Convert dataframe
         with localconverter(ro.default_converter + numpy2ri.converter):
             expr = self.adata.X if self.layer is None else self.adata.layers[self.layer]
             if issparse(expr):
@@ -366,10 +386,10 @@ class EdgeRDE(BaseMethod):
 
         expr_r = ro.conversion.py2rpy(pd.DataFrame(expr, index=self.adata.var_names, columns=self.adata.obs_names))
 
-        ## -- Convert to DGE
+        # Convert to DGE
         dge = edger.DGEList(counts=expr_r, samples=self.adata.obs)
 
-        ## -- Run EdgeR
+        # Run EdgeR
         logging.info("Calculating NormFactors")
         dge = edger.calcNormFactors(dge)
 
@@ -379,12 +399,12 @@ class EdgeRDE(BaseMethod):
         logging.info("Fitting linear model")
         fit = edger.glmQLFit(dge, design=self.design, **kwargs)
 
-        ## -- Save object
+        # Save object
         ro.globalenv["fit"] = fit
         # self.adata.uns["fit"] = fit
         self.fit = fit
 
-    def _test_single_contrast(self, contrast: list[str]) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast: list[str], **kwargs) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
@@ -394,46 +414,43 @@ class EdgeRDE(BaseMethod):
             numpy array of integars indicating contrast
             i.e. [-1, 0, 1, 0, 0]
         """
-        ## For running in notebook
+        # For running in notebook
         # pandas2ri.activate()
         # rpy2.robjects.numpy2ri.activate()
 
-        ## -- To do:
-        ##  parse **kwargs to R function
-        ##  Fix mask for .fit()
+        # ToDo:
+        #  parse **kwargs to R function
+        #  Fix mask for .fit()
 
-        ## -- Check installations
+        # Check installations
         try:
             import rpy2.robjects.numpy2ri
-            import rpy2.robjects.pandas2ri
+            import rpy2.robjects.pandas2ri  # noqa: F401
             from rpy2 import robjects as ro
-            from rpy2.robjects import numpy2ri, pandas2ri
-            from rpy2.robjects.conversion import localconverter
+            from rpy2.robjects import numpy2ri, pandas2ri  # noqa: F401
+            from rpy2.robjects.conversion import localconverter  # noqa: F401
             from rpy2.robjects.packages import importr
 
         except ImportError:
-            raise ImportError("edger requires rpy2 to be installed. ")
+            raise ImportError("edger requires rpy2 to be installed.") from None
 
         try:
-            base = importr("base")
-            edger = importr("edgeR")
-            stats = importr("stats")
-            limma = importr("limma")
-            blasctl = importr("RhpcBLASctl")
-            bcparallel = importr("BiocParallel")
+            importr("base")
+            importr("edgeR")
+            importr("stats")
+            importr("limma")
+            importr("RhpcBLASctl")
+            importr("BiocParallel")
         except ImportError:
             raise ImportError(
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
-            )
+            ) from None
 
-        ## -- Get fit object
-        fit = self.fit
-
-        ## -- Convert vector to R
+        # Convert vector to R
         contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast))
         ro.globalenv["contrast_vec"] = contrast_vec_r
 
-        ## -- Test contrast with R
+        # Test contrast with R
         ro.r(
             """
             test = edgeR::glmQLFTest(fit, contrast=contrast_vec)
@@ -441,7 +458,7 @@ class EdgeRDE(BaseMethod):
             """
         )
 
-        ## -- Convert results to pandas
+        # Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
         return de_res
