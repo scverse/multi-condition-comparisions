@@ -24,7 +24,7 @@ def test_valid_count_matrix(statsmodels_stub):
 
 def test_valid_sparse_count_matrix(statsmodels_stub):
     """Test with a valid sparse count matrix."""
-    matrix = sp.csr_matrix([[1, 0], [0, 2]])
+    matrix = sp.sparse.csr_matrix([[1, 0], [0, 2]])
     assert statsmodels_stub._check_count_matrix(matrix)
 
 
