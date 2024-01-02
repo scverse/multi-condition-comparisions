@@ -14,6 +14,7 @@ from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
 from scanpy import logging
 from scipy.sparse import issparse, spmatrix
+import scipy
 from tqdm.auto import tqdm
 
 
@@ -475,57 +476,23 @@ class WilcoxonTest(BaseMethod):
     def fit(self):
         warnings.warn("There is nothing to fit in a wilcoxon test.")
 
-    def _test(
-        self,
-        contrast,
-        var,
-        **kwargs,
-    ) -> None:
-        """
-        Run a Wilcoxon test for a given contrast.
-
-        Parameters
-        ----------
-        regression_model
-            A statsmodels regression model class, either OLS or GLM. Defaults to OLS.
-
-        **kwargs
-            Additional arguments for fitting the specific method. In particular, this
-            is where you can specify the family for GLM.
-
-        Example
-        -------
-        >>> import statsmodels.api as sm
-        >>> model = StatsmodelsDE(adata, design="~condition")
-        >>> model.fit(sm.GLM, family=sm.families.NegativeBinomial(link=sm.families.links.Log()))
-        >>> results = model.test_contrasts(np.array([0, 1]))
-        """
-        contrast_col = self.adata.obs
-        adata0 = self.adata[self.adata.obs[contrast[0]] == contrast[1], var]
-        adata1 = self.adata[self.adata[contrast[0]] == contrast[2], var]
-        
-        x0 = adata0.X if self.layer is None else adata0.layers[self.layer]
-        x1 = adata1.X if self.layer is None else adata1.layers[self.layer]
-    
-        return scipy.stats.mannwhitneyu(
-                x=np.asarray(x0.todense()).flatten() if isinstance(x0, scipy.sparse.csr_matrix) else x0,
-                y=np.asarray(x1.todense()).flatten() if isinstance(x0, scipy.sparse.csr_matrix) else x1,
-                use_continuity=True,
-                alternative="two-sided"
-            ).pvalue
 
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         res = []
         if len(contrast) != 3:
             raise ValueError("Contrast")
         for var in tqdm(self.adata.var_names):
-            pval = self._test(contrast, var)
-            adata0 = self.adata[self.adata[contrast] == contrast[0], var]
-            adata1 = self.adata[self.adata[contrast] == contrast[1], var]
+            adata0 = self.adata[self.adata.obs[contrast[0]] == contrast[1], var]
+            adata1 = self.adata[self.adata.obs[contrast[0]] == contrast[2], var]
 
             x0 = adata0.X if self.layer is None else adata0.layers[self.layer]
             x1 = adata1.X if self.layer is None else adata1.layers[self.layer]
-
+            pval = scipy.stats.mannwhitneyu(
+                x=np.asarray(x0.todense()).flatten() if isinstance(x0, scipy.sparse.csr_matrix) else x0,
+                y=np.asarray(x1.todense()).flatten() if isinstance(x0, scipy.sparse.csr_matrix) else x1,
+                use_continuity=True,
+                alternative="two-sided"
+            ).pvalue
             mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
             mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
             res.append(
