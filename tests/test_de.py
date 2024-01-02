@@ -4,7 +4,7 @@ import statsmodels.api as sm
 from pandas import testing as tm
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import BaseMethod, PyDESeq2DE, StatsmodelsDE
+from multi_condition_comparisions.tl.de import BaseMethod, PyDESeq2DE, StatsmodelsDE, WilcoxonTest
 
 
 def test_package_has_version():
@@ -21,6 +21,10 @@ def test_package_has_version():
             StatsmodelsDE,
             {"regression_model": sm.GLM, "family": sm.families.NegativeBinomial()},
         ),
+        (
+            WilcoxonTest,
+            {}
+        )
     ],
 )
 def test_de(test_adata, method_class: BaseMethod, kwargs):
