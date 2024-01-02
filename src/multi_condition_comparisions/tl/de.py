@@ -488,8 +488,8 @@ class WilcoxonTest(BaseMethod):
             x0 = adata0.X if self.layer is None else adata0.layers[self.layer]
             x1 = adata1.X if self.layer is None else adata1.layers[self.layer]
             pval = scipy.stats.mannwhitneyu(
-                x=np.asarray(x0.todense()).flatten() if isinstance(x0, scipy.sparse.csr_matrix) else x0,
-                y=np.asarray(x1.todense()).flatten() if isinstance(x0, scipy.sparse.csr_matrix) else x1,
+                x=np.asarray(x0.todense()).flatten() if scipy.sparse.issparse(x0) else x0,
+                y=np.asarray(x1.todense()).flatten() if scipy.sparse.issparse(x1) else x1,
                 use_continuity=True,
                 alternative="two-sided"
             ).pvalue
