@@ -65,7 +65,7 @@ def test_pydeseq2_complex(test_adata):
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
 
 def test_wilcoxon(test_adata):
-    method = WilcoxonTest(adata=test_adata, design="~condition")
+    method = WilcoxonTest(adata=test_adata, design="~condition") # design also doesn't do anything
     method.fit() # doesn't actually do anything, just for API consistency.
     res_df = method.test_contrasts(["condition", "A", "B"])
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1)) # TODO: which of these should actually be <.05?
