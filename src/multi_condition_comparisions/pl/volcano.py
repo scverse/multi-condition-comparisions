@@ -1,45 +1,46 @@
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
-import pandas as pd
-import adjustText
-import matplotlib.patheffects as PathEffects
 import os
+
+import adjustText
 import anndata as ad
-from typing import Union, List, Tuple, Optional, Dict
+import matplotlib.patheffects as PathEffects
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from matplotlib.ticker import MaxNLocator
 
 
 def volcano(
-    data: Union[pd.DataFrame, ad.AnnData],
+    data: pd.DataFrame | ad.AnnData,
     log2fc_col: str = "log2FoldChange",
     pvalue_col: str = "padj",
     symbol_col: str = "symbol",
     pval_thresh: float = 0.05,
     log2fc_thresh: float = 0.75,
-    to_label: Union[int, List[str]] = 5,
-    s_curve: Optional[bool] = False,
-    colors: List[str] = ["gray", "#D62728", "#1F77B4"],
-    varm_key: Optional[str] = None,
-    color_dict: Optional[Dict[str, List[str]]] = None,
-    shape_dict: Optional[Dict[str, List[str]]] = None,
-    size_col: Optional[str] = None,
+    to_label: int | list[str] = 5,
+    s_curve: bool | None = False,
+    colors: list[str] = None,
+    varm_key: str | None = None,
+    color_dict: dict[str, list[str]] | None = None,
+    shape_dict: dict[str, list[str]] | None = None,
+    size_col: str | None = None,
     fontsize: int = 10,
     top_right_frame: bool = False,
-    figsize: Tuple[int, int] = (5, 5),
-    legend_pos: Tuple[float, float] = (1.6, 1),
-    point_sizes: Tuple[int, int] = (15, 150),
-    save: Optional[Union[bool, str]] = None,
-    shapes: Optional[List[str]] = None,
-    shape_order: Optional[List[str]] = None,
-    x_label: Optional[str] = None,
-    y_label: Optional[str] = None,
+    figsize: tuple[int, int] = (5, 5),
+    legend_pos: tuple[float, float] = (1.6, 1),
+    point_sizes: tuple[int, int] = (15, 150),
+    save: bool | str | None = None,
+    shapes: list[str] | None = None,
+    shape_order: list[str] | None = None,
+    x_label: str | None = None,
+    y_label: str | None = None,
     **kwargs: int,
 ) -> None:
     """
     Create a volcano plot from a pandas dataframe
 
-    Parameters:
+    Parameters
+    ----------
     - data: pandas.DataFrame or Anndata
     - log2fc_col: string, default: 'log2FoldChange'
         Column name of log2 Fold-Change values
@@ -91,11 +92,14 @@ def volcano(
     - **kwargs:
         Additional keyword arguments to pass to seaborn.scatterplot
     """
-
     # add type annotations
+    if colors is None:
+        colors = ["gray", "#D62728", "#1F77B4"]
+
     def pval_reciprocal(lfc: float) -> float:
         """
         Function for relating -log10(pvalue) and logfoldchange in a reciprocal.
+
         Used for plotting the S-curve
         """
         return pval_thresh / (lfc - log2fc_thresh)
@@ -118,6 +122,7 @@ def volcano(
     ) -> str:
         """
         Map genes to categories based on log2fc and pvalue.
+
         These categories are used for coloring the dots.
         Used when no color_dict is passed, sets up/down/nonsignificant.
         """
@@ -153,6 +158,7 @@ def volcano(
     ) -> str:
         """
         Map genes to categories based on log2fc and pvalue.
+
         These categories are used for coloring the dots.
         Used when color_dict is passed, sets DE / not DE for background and user supplied highlight genes.
         """
@@ -208,13 +214,9 @@ def volcano(
     if shape_dict or color_dict:
         combined_labels = []
         if isinstance(shape_dict, dict):
-            combined_labels.extend(
-                [item for sublist in shape_dict.values() for item in sublist]
-            )
+            combined_labels.extend([item for sublist in shape_dict.values() for item in sublist])
         if isinstance(color_dict, dict):
-            combined_labels.extend(
-                [item for sublist in color_dict.values() for item in sublist]
-            )
+            combined_labels.extend([item for sublist in color_dict.values() for item in sublist])
         label_df = df[df[symbol_col].isin(combined_labels)]
 
     # Label top n_gens
@@ -282,9 +284,7 @@ def volcano(
         ]
 
     # coloring if dictionary passed, subtle background + highlight
-
     # map shapes if dictionary exists
-
     if shape_dict is not None:
         df["shape"] = df[symbol_col].map(map_shape)
         user_added_cats = [x for x in df["shape"].unique() if x != "other"]
@@ -343,9 +343,7 @@ def volcano(
         )
 
     # plot vertical and horizontal lines
-
     if s_curve:
-        # log2fc_thresh
         x = np.arange((log2fc_thresh + 0.000001), max_log2fc + 1, 0.01)
         y = pval_reciprocal(x)
         ax.plot(x, y, zorder=1, c="k", lw=2, ls="--")
@@ -371,7 +369,7 @@ def volcano(
         txt.set_path_effects([PathEffects.withStroke(linewidth=3, foreground="w")])
         texts.append(txt)
 
-    adjustText.adjust_text(texts, arrowprops=dict(arrowstyle="-", color="k", zorder=5))
+    adjustText.adjust_text(texts, arrowprops={"arrowstyle": "-", "color": "k", "zorder": 5})
 
     # make things pretty
     for axis in ["bottom", "left", "top", "right"]:
