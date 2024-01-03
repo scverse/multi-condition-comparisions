@@ -75,6 +75,8 @@ class BaseMethod(ABC):
         else:
             if not array.dtype.kind == "i" or not np.all(np.abs(array - np.round(array)) < tolerance):
                 raise ValueError("Matrix must be a count matrix.")
+        if (array < 0).sum() > 0:
+            raise ValueError("Non.zero elements of the matrix must be postiive.")
 
         return True
 
