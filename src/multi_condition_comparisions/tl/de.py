@@ -471,7 +471,7 @@ class EdgeRDE(BaseMethod):
 
 class WilcoxonTest(BaseMethod):
     def _check_counts(self) -> bool:
-        return True # later
+        return True # later? is this correct?
     
     def fit(self):
         warnings.warn("There is nothing to fit in a wilcoxon test.")
