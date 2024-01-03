@@ -14,6 +14,7 @@ from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
 from scanpy import logging
 from scipy.sparse import issparse, spmatrix
+import scipy
 from tqdm.auto import tqdm
 
 
@@ -468,3 +469,39 @@ class EdgeRDE(BaseMethod):
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
         return de_res
+    
+
+class WilcoxonTest(BaseMethod):
+    def _check_counts(self) -> bool:
+        return True # later? is this correct?
+    
+    def fit(self):
+        warnings.warn("There is nothing to fit in a wilcoxon test.")
+
+
+    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
+        res = []
+        if len(contrast) != 3:
+            raise ValueError("Contrast")
+        for var in tqdm(self.adata.var_names):
+            adata0 = self.adata[self.adata.obs[contrast[0]] == contrast[1], var]
+            adata1 = self.adata[self.adata.obs[contrast[0]] == contrast[2], var]
+
+            x0 = adata0.X if self.layer is None else adata0.layers[self.layer]
+            x1 = adata1.X if self.layer is None else adata1.layers[self.layer]
+            pval = scipy.stats.mannwhitneyu(
+                x=np.asarray(x0.todense()).flatten() if scipy.sparse.issparse(x0) else x0,
+                y=np.asarray(x1.todense()).flatten() if scipy.sparse.issparse(x1) else x1,
+                use_continuity=True,
+                alternative="two-sided"
+            ).pvalue
+            mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
+            mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
+            res.append(
+                {
+                    "variable": var,
+                    "pvalue": pval,
+                    "fold_change": np.log(mean_x1) - np.log(mean_x0),
+                }
+            )
+        return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
