@@ -1,11 +1,12 @@
 import re
-from typing import Literal
 import warnings
 from abc import ABC, abstractmethod
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 import scanpy as sc
+import scipy
 import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
@@ -15,7 +16,6 @@ from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
 from scanpy import logging
 from scipy.sparse import issparse, spmatrix
-import scipy
 from tqdm.auto import tqdm
 
 
@@ -130,13 +130,14 @@ class BaseMethod(ABC):
         """
         if not isinstance(contrasts, dict):
             contrasts = {None: contrasts}
-        results = []
+        results_list = []
         for name, contrast in contrasts.items():
-            results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
+            results_list.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
 
-        results = pd.concat(results)
-        results.rename(columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"},
-                       inplace=True)
+        results = pd.concat(results_list)
+        results.rename(
+            columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"}, inplace=True
+        )
 
         return results
 
@@ -468,18 +469,28 @@ class EdgeRDE(BaseMethod):
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
         return de_res
-    
+
 
 class WilcoxonTest(BaseMethod):
+    """Wilcoxonon Test via scipy's :func:`~scipy.stats.mannwhitneyu`.
+
+    Parameters
+    ----------
+    BaseMethod : _type_
+        _description_
+    """
+
     def _check_counts(self) -> bool:
-        return True # later? is this correct?
-    
+        return True  # later? is this correct?
+
     def fit(self):
-        warnings.warn("There is nothing to fit in a wilcoxon test.")
+        """`fit` method here is only provided for API completeness and does nothing."""
+        warnings.warn("There is nothing to fit in a wilcoxon test.", stacklevel=2)
         pass
 
-
-    def _test_single_contrast(self, contrast, alternative_hypothesis: Literal["two-sided", "less", "greater"]="two-sided", **kwargs) -> pd.DataFrame:
+    def _test_single_contrast(
+        self, contrast, alternative_hypothesis: Literal["two-sided", "less", "greater"] = "two-sided", **kwargs
+    ) -> pd.DataFrame:
         res = []
         if len(contrast) != 3:
             raise ValueError("Contrast can only have three elements for Wilcoxon test.")
@@ -493,7 +504,7 @@ class WilcoxonTest(BaseMethod):
                 x=np.asarray(x0.todense()).flatten() if scipy.sparse.issparse(x0) else x0,
                 y=np.asarray(x1.todense()).flatten() if scipy.sparse.issparse(x1) else x1,
                 use_continuity=True,
-                alternative=alternative_hypothesis
+                alternative=alternative_hypothesis,
             ).pvalue
             mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
             mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
