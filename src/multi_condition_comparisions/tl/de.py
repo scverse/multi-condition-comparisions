@@ -472,7 +472,7 @@ class EdgeRDE(BaseMethod):
 
 
 class WilcoxonTest(BaseMethod):
-    """Wilcoxonon Test via scipy's :func:`~scipy.stats.mannwhitneyu`.
+    """Wilcoxon Test via scipy's :func:`~scipy.stats.mannwhitneyu`.
 
     Parameters
     ----------
