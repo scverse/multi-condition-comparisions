@@ -1,4 +1,5 @@
 import re
+from typing import Literal
 import warnings
 from abc import ABC, abstractmethod
 
@@ -478,7 +479,7 @@ class WilcoxonTest(BaseMethod):
         pass
 
 
-    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast, alternative_hypothesis: Literal["two-sided", "less", "greater"]="two-sided", **kwargs) -> pd.DataFrame:
         res = []
         if len(contrast) != 3:
             raise ValueError("Contrast can only have three elements for Wilcoxon test.")
@@ -492,7 +493,7 @@ class WilcoxonTest(BaseMethod):
                 x=np.asarray(x0.todense()).flatten() if scipy.sparse.issparse(x0) else x0,
                 y=np.asarray(x1.todense()).flatten() if scipy.sparse.issparse(x1) else x1,
                 use_continuity=True,
-                alternative="two-sided"
+                alternative=alternative_hypothesis
             ).pvalue
             mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
             mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
