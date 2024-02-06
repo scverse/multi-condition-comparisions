@@ -475,6 +475,7 @@ class WilcoxonTest(BaseMethod):
     
     def fit(self):
         warnings.warn("There is nothing to fit in a wilcoxon test.")
+        pass
 
 
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
