@@ -481,7 +481,7 @@ class WilcoxonTest(BaseMethod):
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         res = []
         if len(contrast) != 3:
-            raise ValueError("Contrast")
+            raise ValueError("Contrast can only have three elements for Wilcoxon test.")
         for var in tqdm(self.adata.var_names):
             adata0 = self.adata[self.adata.obs[contrast[0]] == contrast[1], var]
             adata1 = self.adata[self.adata.obs[contrast[0]] == contrast[2], var]
