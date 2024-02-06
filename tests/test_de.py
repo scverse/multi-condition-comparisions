@@ -4,7 +4,7 @@ import statsmodels.api as sm
 from pandas import testing as tm
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import PyDESeq2DE, StatsmodelsDE, WilcoxonTest
+from multi_condition_comparisions.tl.de import MannWhitneyUTest, PyDESeq2DE, StatsmodelsDE, WilcoxonTest
 
 
 def test_package_has_version():
@@ -65,8 +65,9 @@ def test_pydeseq2_complex(test_adata):
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
 
 
-def test_wilcoxon(test_adata):
-    method = WilcoxonTest(adata=test_adata, design="~condition")  # design also doesn't do anything
+@pytest.mark.parametrize("TestClass", [WilcoxonTest, MannWhitneyUTest])
+def test_non_parametric(test_adata, TestClass):
+    method = TestClass(adata=test_adata, design="~condition")  # design also doesn't do anything
     method.fit()  # doesn't actually do anything, just for API consistency.
     res_df = method.test_contrasts(["condition", "A", "B"])
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))  # TODO: which of these should actually be <.05?

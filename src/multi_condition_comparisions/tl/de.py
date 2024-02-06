@@ -1,7 +1,6 @@
 import re
 import warnings
 from abc import ABC, abstractmethod
-from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -471,40 +470,37 @@ class EdgeRDE(BaseMethod):
         return de_res
 
 
-class WilcoxonTest(BaseMethod):
-    """Wilcoxon Test via scipy's :func:`~scipy.stats.mannwhitneyu`.
+class BaseTwoSampleNonParametricTest(BaseMethod):
+    name: str
 
-    Parameters
-    ----------
-    BaseMethod : _type_
-        _description_
-    """
+    def test_method(self, *args, **kwargs):
+        """`test_method` must be implemented as a non-parametric, two-sample test, with an interface like `Callable[[np.ndarray, np.ndarray, ...], object]`. See e.g., https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wilcoxon.html"""
+        raise NotImplementedError(
+            "`test_method` must be implemented as a non-parametric, two-sample test, with an interface like `Callable[[np.ndarray, np.ndarray, ...], object]`. See e.g., https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wilcoxon.html"
+        )
 
     def _check_counts(self) -> bool:
         return True  # later? is this correct?
 
     def fit(self):
         """`fit` method here is only provided for API completeness and does nothing."""
-        warnings.warn("There is nothing to fit in a wilcoxon test.", stacklevel=2)
+        warnings.warn(f"There is nothing to fit in a {self.name} test.", stacklevel=2)
         pass
 
-    def _test_single_contrast(
-        self, contrast, alternative_hypothesis: Literal["two-sided", "less", "greater"] = "two-sided", **kwargs
-    ) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         res = []
         if len(contrast) != 3:
-            raise ValueError("Contrast can only have three elements for Wilcoxon test.")
+            raise ValueError("Contrast can only have three elements for Mann-Whitney U test.")
         for var in tqdm(self.adata.var_names):
-            adata0 = self.adata[self.adata.obs[contrast[0]] == contrast[1], var]
-            adata1 = self.adata[self.adata.obs[contrast[0]] == contrast[2], var]
+            adata0 = self.adata[self.adata.obs[contrast[0]] == contrast[1], var].copy()
+            adata1 = self.adata[self.adata.obs[contrast[0]] == contrast[2], var].copy()
 
             x0 = adata0.X if self.layer is None else adata0.layers[self.layer]
             x1 = adata1.X if self.layer is None else adata1.layers[self.layer]
-            pval = scipy.stats.mannwhitneyu(
-                x=np.asarray(x0.todense()).flatten() if scipy.sparse.issparse(x0) else x0,
-                y=np.asarray(x1.todense()).flatten() if scipy.sparse.issparse(x1) else x1,
-                use_continuity=True,
-                alternative=alternative_hypothesis,
+            pval = self.test_method(
+                x=np.asarray(x0.todense()).flatten() if scipy.sparse.issparse(x0) else x0.flatten(),
+                y=np.asarray(x1.todense()).flatten() if scipy.sparse.issparse(x1) else x1.flatten(),
+                **kwargs,
             ).pvalue
             mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
             mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
@@ -516,3 +512,21 @@ class WilcoxonTest(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
+
+
+class MannWhitneyUTest(BaseTwoSampleNonParametricTest):
+    """Mann-Whitney U Test via scipy's :func:`~scipy.stats.mannwhitneyu`."""
+
+    name: str = "Mann-Whitney U Test"
+
+    def test_method(self, *args, **kwargs):
+        return scipy.stats.mannwhitneyu(*args, **kwargs)
+
+
+class WilcoxonTest(BaseTwoSampleNonParametricTest):
+    """Wilcoxon Test via scipy's :func:`~scipy.stats.mannwhitneyu`."""
+
+    name: str = "Wilcoxon Test"
+
+    def test_method(self, *args, **kwargs):
+        return scipy.stats.wilcoxon(*args, **kwargs)
