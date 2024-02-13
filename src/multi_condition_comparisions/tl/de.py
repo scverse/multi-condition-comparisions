@@ -479,4 +479,4 @@ class EdgeRDE(BaseMethod):
         # Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
 
-        return de_res
+        return de_res.rename(columns={"PValue": "pvals", "logFC": "logfoldchanges", "FDR": "pvals_adj"})
