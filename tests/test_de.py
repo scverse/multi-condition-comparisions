@@ -4,7 +4,7 @@ import statsmodels.api as sm
 from pandas import testing as tm
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import PyDESeq2DE, StatsmodelsDE
+from multi_condition_comparisions.tl.de import PyDESeq2DE, StatsmodelsDE, EdgeRDE
 
 
 def test_package_has_version():
@@ -41,6 +41,20 @@ def test_pydeseq2_simple(test_adata):
     3. and that test_contrast returns a DataFrame with the correct number of rows.
     """
     method = PyDESeq2DE(adata=test_adata, design="~condition")
+    method.fit()
+    res_df = method.test_contrasts(["condition", "A", "B"])
+
+    assert len(res_df) == test_adata.n_vars
+
+
+def test_edger_simple(test_adata):
+    """Check that the EdgeR method can be
+
+    1. Initialized
+    2. Fitted
+    3. and that test_contrast returns a DataFrame with the correct number of rows.
+    """
+    method = EdgeRDE(adata=test_adata, design="~condition")
     method.fit()
     res_df = method.test_contrasts(["condition", "A", "B"])
 

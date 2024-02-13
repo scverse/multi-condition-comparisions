@@ -459,8 +459,13 @@ class EdgeRDE(BaseMethod):
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
             ) from None
 
-        # Convert vector to R
-        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast))
+        # Convert vector to R, which drops a category like `self.design_matrix` to use the intercept for the left out.
+        contrast_vec = [0] * len(self.design.columns)
+        make_contrast_column_key = lambda ind: f"{contrast[0]}[T.{contrast[ind]}]"
+        for index in [1, 2]:
+            if make_contrast_column_key(index) in self.design.columns:
+                contrast_vec[self.design.columns.to_list().index(f"{contrast[0]}[T.{contrast[index]}]")] = 1
+        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast_vec))
         ro.globalenv["contrast_vec"] = contrast_vec_r
 
         # Test contrast with R
