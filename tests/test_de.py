@@ -1,33 +1,14 @@
-import anndata as ad
 import numpy as np
 import pytest
 import statsmodels.api as sm
 from pandas import testing as tm
-from pydeseq2.utils import load_example_data
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import BaseMethod, StatsmodelsDE
+from multi_condition_comparisions.tl.de import PyDESeq2DE, StatsmodelsDE
 
 
 def test_package_has_version():
     assert multi_condition_comparisions.__version__ is not None
-
-
-@pytest.fixture
-def test_adata():
-    counts = load_example_data(
-        modality="raw_counts",
-        dataset="synthetic",
-        debug=False,
-    )
-
-    metadata = load_example_data(
-        modality="metadata",
-        dataset="synthetic",
-        debug=False,
-    )
-
-    return ad.AnnData(X=counts, obs=metadata)
 
 
 @pytest.mark.parametrize(
@@ -42,17 +23,44 @@ def test_adata():
         ),
     ],
 )
-def test_de(test_adata, method_class: BaseMethod, kwargs):
+def test_de(test_adata, method_class, kwargs):
     """Check that the method can be initialized and fitted, and perform basic checks on
     the result of test_contrasts."""
-    method = method_class(adata=test_adata, design="~condition")
+    method = method_class(adata=test_adata, design="~condition")  # type: ignore
     method.fit(**kwargs)
     res_df = method.test_contrasts(np.array([0, 1]))
     # Check that the result has the correct number of rows
     assert len(res_df) == test_adata.n_vars
-    # Check that the index of the result matches the var_names of the adata
+
+
+def test_pydeseq2_simple(test_adata):
+    """Check that the pyDESeq2 method can be
+
+    1. Initialized
+    2. Fitted
+    3. and that test_contrast returns a DataFrame with the correct number of rows.
+    """
+    method = PyDESeq2DE(adata=test_adata, design="~condition")
+    method.fit()
+    res_df = method.test_contrasts(["condition", "A", "B"])
+
+    assert len(res_df) == test_adata.n_vars
+
+
+def test_pydeseq2_complex(test_adata):
+    """Check that the pyDESeq2 method can be initialized with a different covariate name and fitted and that the test_contrast
+    method returns a dataframe with the correct number of rows.
+    """
+    test_adata.obs["condition1"] = test_adata.obs["condition"].copy()
+    method = PyDESeq2DE(adata=test_adata, design="~condition1+group")
+    method.fit()
+    res_df = method.test_contrasts(["condition1", "A", "B"])
+
+    assert len(res_df) == test_adata.n_vars
+    # Check that the index of the result matches the var_names of the AnnData object
     tm.assert_index_equal(test_adata.var_names, res_df.index, check_order=False, check_names=False)
-    # Check that there is a p-value column
-    assert "pvalue" in res_df.columns
-    # Check that p-values are between 0 and 1
-    assert np.all((0 <= res_df["pvalue"]) & (res_df["pvalue"] <= 1))
+
+    expected_columns = {"pvals", "pvals_adj", "logfoldchanges"}
+    assert expected_columns.issubset(set(res_df.columns))
+    assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
+
