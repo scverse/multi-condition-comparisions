@@ -78,3 +78,20 @@ def test_pydeseq2_complex(test_adata):
     assert expected_columns.issubset(set(res_df.columns))
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
 
+def test_edger_complex(test_adata):
+    """Check that the EdgeR method can be initialized with a different covariate name and fitted and that the test_contrast
+    method returns a dataframe with the correct number of rows.
+    """
+    test_adata.obs["condition1"] = test_adata.obs["condition"].copy()
+    method = EdgeRDE(adata=test_adata, design="~condition1+group")
+    method.fit()
+    res_df = method.test_contrasts(["condition1", "A", "B"])
+
+    assert len(res_df) == test_adata.n_vars
+    # Check that the index of the result matches the var_names of the AnnData object
+    tm.assert_index_equal(test_adata.var_names, res_df.index, check_order=False, check_names=False)
+
+    expected_columns = {"pvals", "pvals_adj", "logfoldchanges"}
+    assert expected_columns.issubset(set(res_df.columns))
+    assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
+
