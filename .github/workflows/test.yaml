@@ -52,7 +52,7 @@ jobs:
         with:
           cache-version: 2
           extra-packages: |
-            BiocManager
+            any::BiocManager
       - name: Install edgeR
         run: Rscript -e 'BiocManager::install("edgeR")'
       - name: Install test dependencies
