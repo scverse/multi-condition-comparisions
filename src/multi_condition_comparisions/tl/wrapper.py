@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 import numpy as np
 from anndata import AnnData
@@ -8,9 +8,17 @@ from multi_condition_comparisions.tl.de import EdgeRDE, PyDESeq2DE, StatsmodelsD
 MethodRegistry: dict[str, Any] = {"DESeq": PyDESeq2DE, "edgeR": EdgeRDE, "statsmodels": StatsmodelsDE}
 
 
+class Contrast(TypedDict):
+    """Contrast typed dict."""
+
+    column: str
+    baseline: str
+    group_to_compare: str
+
+
 def run_de(
     adata: AnnData,
-    contrasts: str | list[str] | dict[str, np.ndarray],
+    contrasts: list[Contrast],
     method: Literal["DESeq", "edgeR", "statsmodels"],
     design: str | np.ndarray | None = None,
     mask: str | None = None,
@@ -25,7 +33,7 @@ def run_de(
     adata
         AnnData object, usually pseudobulked.
     contrasts
-        Columns of .obs to perform contrasts with.
+        Contrasts to perform.
     method
         Method to perform DE.
     design (optional)
@@ -44,6 +52,6 @@ def run_de(
     model.fit(**kwargs)
 
     ## Test contrasts
-    de_res = model.test_contrasts(contrasts, **kwargs)
+    de_res = model.test_contrasts(np.vstack([model.contrast(**contrast) for contrast in contrasts]), **kwargs)
 
     return de_res

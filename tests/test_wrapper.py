@@ -18,12 +18,13 @@ def test_arg_types():
     list(MethodRegistry.keys()),
 )
 def test_simple(test_adata, method):
-    res_df = run_de(adata=test_adata, method=method, contrasts=["condition", "A", "B"], design="~condition")
+    contrasts = [{"column": "condition", "baseline": "A", "group_to_compare": "B"}]
+    res_df = run_de(adata=test_adata, method=method, contrasts=contrasts, design="~condition")
 
     assert len(res_df) == test_adata.n_vars
     # Check that the index of the result matches the var_names of the AnnData object
     tm.assert_index_equal(test_adata.var_names, res_df.index, check_order=False, check_names=False)
 
     expected_columns = {"pvals", "pvals_adj", "logfoldchanges"}
-    assert expected_columns.issubset(set(res_df.columns))
+    assert expected_columns.issubset(set(res_df.columns.tolist()))
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))

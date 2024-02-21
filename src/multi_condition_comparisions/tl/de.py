@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import scanpy as sc
+import statsmodels
 import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
@@ -117,7 +118,7 @@ class BaseMethod(ABC):
 
     def test_contrasts(self, contrasts: list[str] | dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
-        Conduct a specific test
+        Conduct a specific test.  Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
         Parameters
         ----------
@@ -271,7 +272,8 @@ class StatsmodelsDE(BaseMethod):
                     "pvalue": t_test.pvalue,
                     "tvalue": t_test.tvalue.item(),
                     "sd": t_test.sd.item(),
-                    "fold_change": t_test.effect.item(),
+                    "logfoldchanges": t_test.effect.item(),
+                    "padj": statsmodels.stats.multitest.fdrcorrection(np.array([t_test.pvalue])),
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
