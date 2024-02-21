@@ -18,7 +18,7 @@ class Contrast(TypedDict):
 
 def run_de(
     adata: AnnData,
-    contrasts: list[Contrast],
+    contrasts: dict[str, Contrast],
     method: Literal["DESeq", "edgeR", "statsmodels"],
     design: str | np.ndarray | None = None,
     mask: str | None = None,
@@ -33,7 +33,7 @@ def run_de(
     adata
         AnnData object, usually pseudobulked.
     contrasts
-        Contrasts to perform.
+        Contrasts to perform.  Mapping from names to tests.
     method
         Method to perform DE.
     design (optional)
@@ -52,6 +52,6 @@ def run_de(
     model.fit(**kwargs)
 
     ## Test contrasts
-    de_res = model.test_contrasts(np.vstack([model.contrast(**contrast) for contrast in contrasts]), **kwargs)
+    de_res = model.test_contrasts({name: model.contrast(**contrast) for name, contrast in contrasts.items()}, **kwargs)
 
     return de_res

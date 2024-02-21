@@ -209,7 +209,7 @@ class BaseMethod(ABC):
 
         return self.design.model_spec.get_model_matrix(df)
 
-    def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> object:
         """
         Build a simple contrast for pairwise comparisons.
 
@@ -219,7 +219,7 @@ class BaseMethod(ABC):
         model.cond(<column> = baseline) - model.cond(<column> = group_to_compare)
         ```
         """
-        return self.cond(**{column: baseline}) - self.cond(**{column: group_to_compare})
+        return [column, baseline, group_to_compare]
 
 
 class StatsmodelsDE(BaseMethod):
@@ -277,6 +277,18 @@ class StatsmodelsDE(BaseMethod):
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
+
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
+        """
+        Build a simple contrast for pairwise comparisons.
+
+        This is equivalent to
+
+        ```
+        model.cond(<column> = baseline) - model.cond(<column> = group_to_compare)
+        ```
+        """
+        return self.cond(**{column: baseline}) - self.cond(**{column: group_to_compare})
 
 
 class PyDESeq2DE(BaseMethod):
