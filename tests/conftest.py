@@ -38,6 +38,8 @@ def test_adata_minimal():
             ["B", "D1", "X"],
             ["A", "D2", "Y"],
             ["B", "D2", "Y"],
+            ["A", "D3", "Y"],
+            ["B", "D3", "Y"],
         ],
         columns=["condition", "donor", "other"],
     )
@@ -51,6 +53,8 @@ def test_adata_minimal():
             [20, 220],
             [12, 400],
             [25, 420],
+            [13, 600],
+            [24, 620],
         ]
     )
     return ad.AnnData(X=X, obs=obs, var=var)

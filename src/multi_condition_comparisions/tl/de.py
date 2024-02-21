@@ -67,7 +67,13 @@ class BaseMethod(ABC):
         else:
             self.design = design
 
+        self._check_design()
+
     def _check_count_matrix(self, array: np.ndarray | spmatrix, tolerance: float = 1e-6) -> bool:
+        """You can use this in `_check_counts` to check if counts are integers.
+
+        TODO this should probably go into a `util` module or something. Otherwise it's not even clear we have this.
+        """
         if issparse(array):
             if not array.data.dtype.kind == "i":
                 raise ValueError("Non-zero elements of the matrix must be integers.")
@@ -88,18 +94,27 @@ class BaseMethod(ABC):
         return self.design.model_spec.variables_by_source["data"]
 
     @abstractmethod
-    def _check_counts(self) -> bool:
+    def _check_counts(self) -> None:
         """
         Check that counts are valid for the specific method.
 
         Different methods may have different requirements.
 
-        Returns
-        -------
-        bool
-            True if counts are valid, False otherwise.
+
+        Raises
+        ------
+        ValueError, if counts are not valid
         """
         ...
+
+    def _check_design(self) -> None:  # noqa: B027 | this function is empty on purpose
+        """
+        Check if the design matrix is valid
+
+        You can use this to enforce contstraints on the design matrix.
+        May not be needed by all methods.
+        """
+        pass
 
     @abstractmethod
     def fit(self, **kwargs) -> None:
@@ -114,9 +129,9 @@ class BaseMethod(ABC):
         ...
 
     @abstractmethod
-    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame: ...
+    def _test_single_contrast(self, contrast: np.ndarray, **kwargs) -> pd.DataFrame: ...
 
-    def test_contrasts(self, contrasts: list[str] | dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
+    def test_contrasts(self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
         Conduct a specific test.  Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
@@ -475,17 +490,18 @@ class EdgeRDE(BaseMethod):
         return de_res
 
 
-class BaseTwoSampleNonParametricTest(BaseMethod):
+class BaseTwoGroupNonParametricTest(BaseMethod):
+    """Base class for simple tests for comparing between two groups"""
+
     name: str
 
+    @abstractmethod
     def test_method(self, *args, **kwargs):
         """`test_method` must be implemented as a non-parametric, two-sample test, with an interface like `Callable[[np.ndarray, np.ndarray, ...], object]`. See e.g., https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wilcoxon.html"""
-        raise NotImplementedError(
-            "`test_method` must be implemented as a non-parametric, two-sample test, with an interface like `Callable[[np.ndarray, np.ndarray, ...], object]`. See e.g., https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wilcoxon.html"
-        )
+        ...
 
-    def _check_counts(self) -> bool:
-        return True  # later? is this correct?
+    def _check_design(self) -> None:
+        raise NotImplemented
 
     def fit(self):
         """`fit` method here is only provided for API completeness and does nothing."""
@@ -519,7 +535,7 @@ class BaseTwoSampleNonParametricTest(BaseMethod):
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
 
 
-class MannWhitneyUTest(BaseTwoSampleNonParametricTest):
+class MannWhitneyUTest(BaseTwoGroupNonParametricTest):
     """Mann-Whitney U Test via scipy's :func:`~scipy.stats.mannwhitneyu`."""
 
     name: str = "Mann-Whitney U Test"
@@ -528,7 +544,7 @@ class MannWhitneyUTest(BaseTwoSampleNonParametricTest):
         return scipy.stats.mannwhitneyu(*args, **kwargs)
 
 
-class WilcoxonTest(BaseTwoSampleNonParametricTest):
+class WilcoxonTest(BaseTwoGroupNonParametricTest):
     """Wilcoxon Test via scipy's :func:`~scipy.stats.mannwhitneyu`."""
 
     name: str = "Wilcoxon Test"
