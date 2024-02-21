@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 import scipy
+import statsmodels
 import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
@@ -76,6 +77,8 @@ class BaseMethod(ABC):
         else:
             if not array.dtype.kind == "i" or not np.all(np.abs(array - np.round(array)) < tolerance):
                 raise ValueError("Matrix must be a count matrix.")
+        if (array < 0).sum() > 0:
+            raise ValueError("Non.zero elements of the matrix must be postiive.")
 
         return True
 
@@ -111,12 +114,11 @@ class BaseMethod(ABC):
         ...
 
     @abstractmethod
-    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
-        ...
+    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame: ...
 
     def test_contrasts(self, contrasts: list[str] | dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
-        Conduct a specific test
+        Conduct a specific test.  Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
         Parameters
         ----------
@@ -138,7 +140,7 @@ class BaseMethod(ABC):
             columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"}, inplace=True
         )
 
-        return results
+        return results_df
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
         """
@@ -207,17 +209,9 @@ class BaseMethod(ABC):
 
         return self.design.model_spec.get_model_matrix(df)
 
-    def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
-        """
-        Build a simple contrast for pairwise comparisons.
-
-        This is equivalent to
-
-        ```
-        model.cond(<column> = baseline) - model.cond(<column> = group_to_compare)
-        ```
-        """
-        return self.cond(**{column: baseline}) - self.cond(**{column: group_to_compare})
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> object:
+        """Build a simple contrast for pairwise comparisons.  In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
+        return [column, baseline, group_to_compare]
 
 
 class StatsmodelsDE(BaseMethod):
@@ -270,10 +264,23 @@ class StatsmodelsDE(BaseMethod):
                     "pvalue": t_test.pvalue,
                     "tvalue": t_test.tvalue.item(),
                     "sd": t_test.sd.item(),
-                    "fold_change": t_test.effect.item(),
+                    "logfoldchanges": t_test.effect.item(),
+                    "padj": statsmodels.stats.multitest.fdrcorrection(np.array([t_test.pvalue]))[1].item(),
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
+
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
+        """
+        Build a simple contrast for pairwise comparisons.
+
+        This is equivalent to
+
+        ```
+        model.cond(<column> = baseline) - model.cond(<column> = group_to_compare)
+        ```
+        """
+        return self.cond(**{column: baseline}) - self.cond(**{column: group_to_compare})
 
 
 class PyDESeq2DE(BaseMethod):
@@ -347,6 +354,9 @@ class EdgeRDE(BaseMethod):
         ----------
         **kwargs
             Keyword arguments specific to glmQLFit()
+        '''
+
+        ## -- Check installations
         """
         # For running in notebook
         # pandas2ri.activate()
@@ -367,17 +377,13 @@ class EdgeRDE(BaseMethod):
             raise ImportError("edger requires rpy2 to be installed. ") from None
 
         try:
-            importr("base")
             edger = importr("edgeR")
-            importr("stats")
-            importr("limma")
-            importr("RhpcBLASctl")
-            importr("BiocParallel")
         except ImportError:
             raise ImportError(
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
             ) from None
 
+        ## -- Convert dataframe
         # Feature selection
         # if mask is not None:
         #    self.adata = self.adata[:,~self.adata.var[mask]]
@@ -407,7 +413,6 @@ class EdgeRDE(BaseMethod):
 
         # Save object
         ro.globalenv["fit"] = fit
-        # self.adata.uns["fit"] = fit
         self.fit = fit
 
     def _test_single_contrast(self, contrast: list[str], **kwargs) -> pd.DataFrame:
@@ -420,6 +425,7 @@ class EdgeRDE(BaseMethod):
             numpy array of integars indicating contrast
             i.e. [-1, 0, 1, 0, 0]
         """
+        ## -- Check installations
         # For running in notebook
         # pandas2ri.activate()
         # rpy2.robjects.numpy2ri.activate()
@@ -428,7 +434,6 @@ class EdgeRDE(BaseMethod):
         #  parse **kwargs to R function
         #  Fix mask for .fit()
 
-        # Check installations
         try:
             import rpy2.robjects.numpy2ri
             import rpy2.robjects.pandas2ri  # noqa: F401
@@ -441,19 +446,19 @@ class EdgeRDE(BaseMethod):
             raise ImportError("edger requires rpy2 to be installed.") from None
 
         try:
-            importr("base")
             importr("edgeR")
-            importr("stats")
-            importr("limma")
-            importr("RhpcBLASctl")
-            importr("BiocParallel")
         except ImportError:
             raise ImportError(
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
             ) from None
 
-        # Convert vector to R
-        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast))
+        # Convert vector to R, which drops a category like `self.design_matrix` to use the intercept for the left out.
+        contrast_vec = [0] * len(self.design.columns)
+        make_contrast_column_key = lambda ind: f"{contrast[0]}[T.{contrast[ind]}]"
+        for index in [1, 2]:
+            if make_contrast_column_key(index) in self.design.columns:
+                contrast_vec[self.design.columns.to_list().index(f"{contrast[0]}[T.{contrast[index]}]")] = 1
+        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast_vec))
         ro.globalenv["contrast_vec"] = contrast_vec_r
 
         # Test contrast with R
