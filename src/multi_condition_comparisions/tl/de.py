@@ -440,12 +440,7 @@ class EdgeRDE(BaseMethod):
             raise ImportError("edger requires rpy2 to be installed.") from None
 
         try:
-            importr("base")
             importr("edgeR")
-            importr("stats")
-            importr("limma")
-            importr("RhpcBLASctl")
-            importr("BiocParallel")
         except ImportError:
             raise ImportError(
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
