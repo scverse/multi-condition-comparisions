@@ -140,7 +140,7 @@ class BaseMethod(ABC):
             columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"}, inplace=True
         )
 
-        return results_df
+        return results
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
         """
