@@ -265,7 +265,7 @@ class StatsmodelsDE(BaseMethod):
                     "tvalue": t_test.tvalue.item(),
                     "sd": t_test.sd.item(),
                     "logfoldchanges": t_test.effect.item(),
-                    "padj": statsmodels.stats.multitest.fdrcorrection(np.array([t_test.pvalue])),
+                    "padj": statsmodels.stats.multitest.fdrcorrection(np.array([t_test.pvalue]))[1].item(),
                 }
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
