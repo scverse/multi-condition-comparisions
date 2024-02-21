@@ -18,29 +18,68 @@ def test_arg_types():
     list(MethodRegistry.keys()),
 )
 @pytest.mark.parametrize(
-    "contrasts",
+    "design,contrasts",
     [
-        {
-            "first": {"column": "condition", "baseline": "A", "group_to_compare": "B"},
-        },
-        {
-            "first": {"column": "condition", "baseline": "A", "group_to_compare": "B"},
-            "second": {"column": "condition", "baseline": "B", "group_to_compare": "A"},
-        },
-        {
-            "first": ["condition", "A", "B"],
-        },
-        {
-            "first": ["condition", "A", "B"],
-            "second": ["condition", "B", "A"],
-        },
+        (
+            "~condition",
+            {
+                "first": {"column": "condition", "baseline": "A", "group_to_compare": "B"},
+            },
+        ),
+        (
+            "~condition",
+            {
+                "first": {"column": "condition", "baseline": "A", "group_to_compare": "B"},
+                "second": {"column": "condition", "baseline": "B", "group_to_compare": "A"},
+            },
+        ),
+        (
+            "~condition",
+            {
+                "first": ["condition", "A", "B"],
+            },
+        ),
+        (
+            "~condition",
+            {
+                "first": ["condition", "A", "B"],
+                "second": ["condition", "B", "A"],
+            },
+        ),
+        (
+            "~condition1+group",
+            {
+                "first": {"column": "condition1", "baseline": "A", "group_to_compare": "B"},
+            },
+        ),
+        (
+            "~condition1+group",
+            {
+                "first": {"column": "condition1", "baseline": "A", "group_to_compare": "B"},
+                "second": {"column": "condition1", "baseline": "B", "group_to_compare": "A"},
+            },
+        ),
+        (
+            "~condition1+group",
+            {
+                "first": ["condition1", "A", "B"],
+            },
+        ),
+        (
+            "~condition1+group",
+            {
+                "first": ["condition1", "A", "B"],
+                "second": ["condition1", "B", "A"],
+            },
+        ),
     ],
 )
-def test_simple(test_adata, method, contrasts):
-    res_df = run_de(adata=test_adata, method=method, contrasts=contrasts, design="~condition")
+def test_run_de(test_adata, method, design, contrasts):
+    test_adata.obs["condition1"] = test_adata.obs["condition"].copy()
+    res_df = run_de(adata=test_adata, method=method, contrasts=contrasts, design=design)
 
     assert len(res_df) == test_adata.n_vars * len(contrasts)
-    # Check that the index of the result matches the var_names of the AnnData object
+    # Check that the index of the result per group matches the var_names of the AnnData object
     tm.assert_index_equal(
         test_adata.var_names, res_df.index[: len(res_df) // len(contrasts)], check_order=False, check_names=False
     )
