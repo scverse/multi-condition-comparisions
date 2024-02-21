@@ -18,7 +18,7 @@ class Contrast(TypedDict):
 
 def run_de(
     adata: AnnData,
-    contrasts: dict[str, Contrast],
+    contrasts: dict[str, Contrast | list[str]],
     method: Literal["DESeq", "edgeR", "statsmodels"],
     design: str | np.ndarray | None = None,
     mask: str | None = None,
@@ -52,6 +52,12 @@ def run_de(
     model.fit(**kwargs)
 
     ## Test contrasts
-    de_res = model.test_contrasts({name: model.contrast(**contrast) for name, contrast in contrasts.items()}, **kwargs)
+    de_res = model.test_contrasts(
+        {
+            name: model.contrast(**contrast) if isinstance(contrast, dict) else model.contrast(*contrast)
+            for name, contrast in contrasts.items()
+        },
+        **kwargs,
+    )
 
     return de_res

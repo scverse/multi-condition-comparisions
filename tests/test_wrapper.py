@@ -27,6 +27,13 @@ def test_arg_types():
             "first": {"column": "condition", "baseline": "A", "group_to_compare": "B"},
             "second": {"column": "condition", "baseline": "B", "group_to_compare": "A"},
         },
+        {
+            "first": ["condition", "A", "B"],
+        },
+        {
+            "first": ["condition", "A", "B"],
+            "second": ["condition", "B", "A"],
+        },
     ],
 )
 def test_simple(test_adata, method, contrasts):
