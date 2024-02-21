@@ -1,14 +1,23 @@
-from typing import List
+from typing import Any, Literal
 
 import numpy as np
-from pyparsing import Literal
 from anndata import AnnData
 
-from multi_condition_comparisions.tl.de import PyDESeq2DE, EdgeRDE, StatsmodelsDE
+from multi_condition_comparisions.tl.de import EdgeRDE, PyDESeq2DE, StatsmodelsDE
 
-def run_de(adata: AnnData, contrasts: str | List[str] | dict[str, np.ndarray],
-           method: Literal[type[PyDESeq2DE], type[EdgeRDE], type[StatsmodelsDE]], design: str | np.ndarray | None = None,mask: str | None = None,layer: str | None = None, **kwargs):
-    '''
+MethodRegistry: dict[str, Any] = {"DESeq": PyDESeq2DE, "edgeR": EdgeRDE, "statsmodels": StatsmodelsDE}
+
+
+def run_de(
+    adata: AnnData,
+    contrasts: str | list[str] | dict[str, np.ndarray],
+    method: Literal["DESeq", "edgeR", "statsmodels"],
+    design: str | np.ndarray | None = None,
+    mask: str | None = None,
+    layer: str | None = None,
+    **kwargs,
+):
+    """
     Wrapper function to run differential expression analysis.
 
     Params:
@@ -27,17 +36,14 @@ def run_de(adata: AnnData, contrasts: str | List[str] | dict[str, np.ndarray],
         Layer to use in fit(). If None, use the X matrix.
     **kwargs
         Keyword arguments specific to the method implementation.
-    '''
-
-    
+    """
     ## Initialise object
-    model = method(adata, design, mask = mask, layer= layer)
-    
+    model = MethodRegistry[method](adata, design, mask=mask, layer=layer)
+
     ## Fit model
     model.fit(**kwargs)
-    
+
     ## Test contrasts
     de_res = model.test_contrasts(contrasts, **kwargs)
-    
-    return de_res
 
+    return de_res

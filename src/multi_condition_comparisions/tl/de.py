@@ -1,10 +1,8 @@
 import re
-from typing import List
 import warnings
 from abc import ABC, abstractmethod
 
 import numpy as np
-from numpy import inf
 import pandas as pd
 import scanpy as sc
 import statsmodels.api as sm
@@ -136,11 +134,12 @@ class BaseMethod(ABC):
         for name, contrast in contrasts.items():
             results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
 
-        results = pd.concat(results)
-        results.rename(columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"},
-                       inplace=True)
+        results_df = pd.concat(results)
+        results_df.rename(
+            columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"}, inplace=True
+        )
 
-        return results
+        return results_df
 
     def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
         """
@@ -350,7 +349,7 @@ class EdgeRDE(BaseMethod):
         **kwargs
             Keyword arguments specific to glmQLFit()
         '''
-        
+
         ## -- Check installations
         """
         # For running in notebook
@@ -382,7 +381,6 @@ class EdgeRDE(BaseMethod):
             raise ImportError(
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
             ) from None
-
 
         ## -- Convert dataframe
         # Feature selection
@@ -416,7 +414,7 @@ class EdgeRDE(BaseMethod):
         ro.globalenv["fit"] = fit
         self.fit = fit
 
-    def _test_single_contrast(self, contrast: List[str], **kwargs) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast: list[str], **kwargs) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
@@ -426,7 +424,6 @@ class EdgeRDE(BaseMethod):
             numpy array of integars indicating contrast
             i.e. [-1, 0, 1, 0, 0]
         """
-        
         ## -- Check installations
         # For running in notebook
         # pandas2ri.activate()
