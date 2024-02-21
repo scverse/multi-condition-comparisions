@@ -210,15 +210,7 @@ class BaseMethod(ABC):
         return self.design.model_spec.get_model_matrix(df)
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> object:
-        """
-        Build a simple contrast for pairwise comparisons.
-
-        This is equivalent to
-
-        ```
-        model.cond(<column> = baseline) - model.cond(<column> = group_to_compare)
-        ```
-        """
+        """Build a simple contrast for pairwise comparisons.  In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
         return [column, baseline, group_to_compare]
 
 
