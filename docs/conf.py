@@ -120,17 +120,7 @@ html_theme_options = {
 
 pygments_style = "default"
 
-
-def setup(app):
-    """App setup hook."""
-    app.add_config_value(
-        "recommonmark_config",
-        {
-            "auto_toc_tree_section": "Contents",
-            "enable_auto_toc_tree": True,
-            "enable_math": True,
-            "enable_inline_math": False,
-            "enable_eval_rst": True,
-        },
-        True,
-    )
+nitpick_ignore: list[tuple[str, str]] = [
+    # you can add an exception to this list.
+    #     ("py:class", "igraph.Graph"),
+]
