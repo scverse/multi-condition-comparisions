@@ -125,6 +125,7 @@ convention = "numpy"
 "docs/*" = ["I"]
 "tests/*" = ["D"]
 "*/__init__.py" = ["F401"]
+"*.ipynb" = ["E402"] # module level import not at top of cell
 
 [tool.cruft]
 skip = [
