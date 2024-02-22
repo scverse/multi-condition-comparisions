@@ -1,0 +1,73 @@
+import re
+import warnings
+from abc import ABC, abstractmethod
+
+import numpy as np
+import pandas as pd
+import scanpy as sc
+import statsmodels
+import statsmodels.api as sm
+from anndata import AnnData
+from formulaic import model_matrix
+from formulaic.model_matrix import ModelMatrix
+from pydeseq2.dds import DeseqDataSet
+from pydeseq2.default_inference import DefaultInference
+from pydeseq2.ds import DeseqStats
+from scanpy import logging
+from scipy.sparse import issparse, spmatrix
+from tqdm.auto import tqdm
+
+
+class PyDESeq2DE(BaseMethod):
+    """Differential expression test using a PyDESeq2"""
+
+    def _check_counts(self) -> bool:
+        return self._check_count_matrix(self.adata.X)
+
+    def fit(self, **kwargs) -> pd.DataFrame:
+        """
+        Fit dds model using pydeseq2.
+
+        Note: this creates its own AnnData object for downstream processing.
+
+        Params:
+        ----------
+        **kwargs
+            Keyword arguments specific to DeseqDataSet()
+        """
+        inference = DefaultInference(n_cpus=3)
+        covars = self.design.columns.tolist()
+        if "Intercept" not in covars:
+            warnings.warn(
+                "Warning: Pydeseq is hard-coded to use Intercept, please include intercept into the model", stacklevel=2
+            )
+        processed_covars = [col.split("[")[0] for col in covars if col != "Intercept"]
+        dds = DeseqDataSet(
+            adata=self.adata, design_factors=processed_covars, refit_cooks=True, inference=inference, **kwargs
+        )
+        # workaround code to insert design array
+        des_mtx_cols = dds.obsm["design_matrix"].columns
+        dds.obsm["design_matrix"] = self.design
+        if dds.obsm["design_matrix"].shape[1] == len(des_mtx_cols):
+            dds.obsm["design_matrix"].columns = des_mtx_cols.copy()
+
+        dds.deseq2()
+        self.dds = dds
+
+    def _test_single_contrast(self, contrast: list[str], alpha=0.05, **kwargs) -> pd.DataFrame:
+        """
+        Conduct a specific test and returns a data frame
+
+        Parameters
+        ----------
+        contrasts:
+            list of three strings of the form
+            ["variable", "tested level", "reference level"]
+        alpha: p value threshold used for controlling fdr with
+        independent hypothesis weighting
+        kwargs: extra arguments to pass to DeseqStats()
+        """
+        stat_res = DeseqStats(self.dds, contrast=contrast, alpha=alpha, **kwargs)
+        stat_res.summary()
+        stat_res.p_values
+        return pd.DataFrame(stat_res.results_df).sort_values("padj")
