@@ -34,14 +34,14 @@ def test_adata(test_counts, test_metadata):
 def test_adata_minimal():
     obs = pd.DataFrame(
         [
-            ["A", "D1", "X"],
-            ["B", "D1", "X"],
-            ["A", "D2", "Y"],
-            ["B", "D2", "Y"],
-            ["A", "D3", "Y"],
-            ["B", "D3", "Y"],
+            ["A", "D1", "X", 0.2],
+            ["B", "D1", "X", 0.7],
+            ["A", "D2", "Y", 1.6],
+            ["B", "D2", "Y", 42],
+            ["A", "D3", "Y", 212],
+            ["B", "D3", "Y", 6023],
         ],
-        columns=["condition", "donor", "other"],
+        columns=["condition", "donor", "other", "cont"],
     )
     var = pd.DataFrame(index=["gene1", "gene2"])
     X = np.array(

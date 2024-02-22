@@ -17,6 +17,7 @@ from pydeseq2.ds import DeseqStats
 from scanpy import logging
 from scipy.sparse import issparse, spmatrix
 from tqdm.auto import tqdm
+from formulaic.parser.types import Factor
 
 
 class BaseMethod(ABC):
@@ -131,7 +132,9 @@ class BaseMethod(ABC):
     @abstractmethod
     def _test_single_contrast(self, contrast: np.ndarray, **kwargs) -> pd.DataFrame: ...
 
-    def test_contrasts(self, contrasts: dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
+    def test_contrasts(
+        self, contrasts: dict[str, np.ndarray | pd.Series] | np.ndarray | pd.Series, **kwargs
+    ) -> pd.DataFrame:
         """
         Conduct a specific test.  Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
@@ -176,7 +179,7 @@ class BaseMethod(ABC):
         """
         raise NotImplementedError
 
-    def cond(self, **kwargs) -> np.ndarray:
+    def cond(self, **kwargs) -> pd.Series:
         """
         The intention is to make contrasts using this function as in glmGamPoi
 
@@ -222,7 +225,7 @@ class BaseMethod(ABC):
 
         df = pd.DataFrame([kwargs])
 
-        return self.design.model_spec.get_model_matrix(df)
+        return self.design.model_spec.get_model_matrix(df).iloc[0]
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> object:
         """Build a simple contrast for pairwise comparisons.  In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
@@ -501,14 +504,52 @@ class BaseTwoGroupNonParametricTest(BaseMethod):
         ...
 
     def _check_design(self) -> None:
-        raise NotImplemented
+        if len(self.design.model_spec.encoder_state) not in [1, 2]:
+            raise ValueError(
+                f"{self.name} only supports designs in the form of '~ x' or `~ x + y` for unpaired and paired tests, respectively."
+            )
+        for factor_name, factor_description in self.design.model_spec.encoder_state.items():
+            if factor_description[0] != Factor.Kind.CATEGORICAL:
+                raise ValueError(f"{self.name} only supports categorical variables. {factor_name} is not.")
+
+    @property
+    def is_paired_design(self) -> bool:
+        """Indicates whether a paired test will be performed or not"""
+        return len(self.design.model_spec.encoder_state) == 2
 
     def fit(self):
         """`fit` method here is only provided for API completeness and does nothing."""
         warnings.warn(f"There is nothing to fit in a {self.name} test.", stacklevel=2)
         pass
 
-    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
+    def _contrast_vector_to_comparison(self, contrast: np.ndarray):
+        contrast = pd.Series(contrast)
+        contrast.index = self.design.columns
+        var_masks = {
+            var: np.array([re.match(f"{var}\\[", col) for col in contrast.index])
+            for var in self.design.model_spec.encoder_state
+        }
+        # find out which one is the column to test
+        column_to_test = None
+        for var, mask in var_masks.items():
+            if column_to_test is not None:
+                raise ValueError("Invalid contrast: must only compare within one variable")
+            if not np.all(contrast[mask].values == 0):
+                column_to_test = var
+        if column_to_test is None:
+            raise ValueError("Must provide a contrast corresponding to a comparison within a variable")
+
+        # find out which is the column to pair by (if any)
+        column_to_pair = None
+        if self.is_paired_design:
+            column_to_pair = next(x for x in var_masks.keys() if x != column_to_test)
+
+        # find out which are the denominator and nominator categories, respectively
+        # TODO
+        # this is tedious, but possible from the design matrix + contrast vector. Basically we need to find out which
+        # is the "omitted" category.
+
+    def _test_single_contrast(self, contrast: np.ndarray, **kwargs) -> pd.DataFrame:
         res = []
         if len(contrast) != 3:
             raise ValueError("Contrast can only have three elements for Mann-Whitney U test.")
@@ -534,20 +575,27 @@ class BaseTwoGroupNonParametricTest(BaseMethod):
             )
         return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
 
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
+        """
+        Build a simple contrast for pairwise comparisons.
 
-class MannWhitneyUTest(BaseTwoGroupNonParametricTest):
-    """Mann-Whitney U Test via scipy's :func:`~scipy.stats.mannwhitneyu`."""
+        This is equivalent to
 
-    name: str = "Mann-Whitney U Test"
-
-    def test_method(self, *args, **kwargs):
-        return scipy.stats.mannwhitneyu(*args, **kwargs)
+        ```
+        model.cond(<column> = baseline) - model.cond(<column> = group_to_compare)
+        ```
+        """
+        return self.cond(**{column: baseline}) - self.cond(**{column: group_to_compare})
 
 
 class WilcoxonTest(BaseTwoGroupNonParametricTest):
     """Wilcoxon Test via scipy's :func:`~scipy.stats.mannwhitneyu`."""
 
     name: str = "Wilcoxon Test"
+
+    def _check_counts(self) -> None:
+        # Nothing to check here for a non-parametric test.
+        pass
 
     def test_method(self, *args, **kwargs):
         return scipy.stats.wilcoxon(*args, **kwargs)
