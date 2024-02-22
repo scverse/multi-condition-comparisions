@@ -26,5 +26,6 @@ __pycache__/
 # IDEs
 /.idea/
 /.vscode/
+*.code-workspace
 
 /node_modules
