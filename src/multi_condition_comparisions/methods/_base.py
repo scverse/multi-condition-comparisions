@@ -1,5 +1,6 @@
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -26,7 +27,11 @@ class MethodBase(ABC):
     @abstractmethod
     @staticmethod
     def compare_groups(
-        adata: AnnData, contrasts: ContrastType, *, mask: str | None = None, layer: str | None = None
+        adata: AnnData,
+        contrasts: ContrastType | Mapping[str, ContrastType],
+        *,
+        mask: str | None = None,
+        layer: str | None = None,
     ) -> pd.DataFrame:
         ...
 
