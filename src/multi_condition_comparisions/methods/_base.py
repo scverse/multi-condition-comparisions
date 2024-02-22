@@ -1,27 +1,13 @@
-from abc import ABC, abstractmethod
-import pandas as pd
-from anndata import AnnData
-from typing import NamedTuple
-from dataclasses import dataclass
-import numpy as np
 import re
-import warnings
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-import scanpy as sc
-import statsmodels
-import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
-from pydeseq2.dds import DeseqDataSet
-from pydeseq2.default_inference import DefaultInference
-from pydeseq2.ds import DeseqStats
-from scanpy import logging
 from scipy.sparse import issparse, spmatrix
-from tqdm.auto import tqdm
 
 
 @dataclass
@@ -36,15 +22,16 @@ class Contrast:
 ContrastType = Contrast | tuple[str, str, str]
 
 
-class BaseMethod(ABC):
+class MethodBase(ABC):
     @abstractmethod
     @staticmethod
     def compare_groups(
         adata: AnnData, contrasts: ContrastType, *, mask: str | None = None, layer: str | None = None
-    ) -> pd.DataFrame: ...
+    ) -> pd.DataFrame:
+        ...
 
 
-class LinearModelBase(BaseMethod):
+class LinearModelBase(MethodBase):
     """Base method for DE testing that is implemented per DE test."""
 
     def __init__(
@@ -139,7 +126,8 @@ class LinearModelBase(BaseMethod):
         ...
 
     @abstractmethod
-    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame: ...
+    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
+        ...
 
     def test_contrasts(self, contrasts: list[str] | dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
@@ -167,7 +155,7 @@ class LinearModelBase(BaseMethod):
 
         return results_df
 
-    def test_reduced(self, modelB: "BaseMethod") -> pd.DataFrame:
+    def test_reduced(self, modelB: "MethodBase") -> pd.DataFrame:
         """
         Test against a reduced model
 

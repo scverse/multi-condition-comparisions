@@ -1,10 +1,10 @@
 import anndata as ad
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pytest
 from pydeseq2.utils import load_example_data
 
-from multi_condition_comparisions.tl.de import StatsmodelsDE
+from multi_condition_comparisions.tl.de import Statsmodels
 
 
 @pytest.fixture
@@ -62,4 +62,4 @@ def test_adata_minimal():
 
 @pytest.fixture
 def statsmodels_stub(test_adata):
-    return StatsmodelsDE(adata=test_adata, design="~condition")
+    return Statsmodels(adata=test_adata, design="~condition")

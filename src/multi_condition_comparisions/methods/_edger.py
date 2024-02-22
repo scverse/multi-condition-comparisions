@@ -1,24 +1,12 @@
-import re
-import warnings
-from abc import ABC, abstractmethod
-
 import numpy as np
 import pandas as pd
-import scanpy as sc
-import statsmodels
-import statsmodels.api as sm
-from anndata import AnnData
-from formulaic import model_matrix
-from formulaic.model_matrix import ModelMatrix
-from pydeseq2.dds import DeseqDataSet
-from pydeseq2.default_inference import DefaultInference
-from pydeseq2.ds import DeseqStats
 from scanpy import logging
-from scipy.sparse import issparse, spmatrix
-from tqdm.auto import tqdm
+from scipy.sparse import issparse
+
+from ._base import LinearModelBase
 
 
-class EdgeRDE(BaseMethod):
+class EdgeR(LinearModelBase):
     """Differential expression test using EdgeR"""
 
     def _check_counts(self) -> bool:

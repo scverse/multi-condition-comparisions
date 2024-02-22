@@ -4,7 +4,7 @@ import pytest
 import scipy as sp
 from scipy.sparse import csr_matrix
 
-from multi_condition_comparisions.tl.de import StatsmodelsDE
+from multi_condition_comparisions.tl.de import Statsmodels
 
 
 @pytest.mark.parametrize("invalid_input", [np.nan, np.inf, "foo"])
@@ -13,7 +13,7 @@ def test_invalid_inputs(invalid_input, test_counts, test_metadata):
     test_counts[0, 0] = invalid_input
     adata = ad.AnnData(X=test_counts, obs=test_metadata)
     with pytest.raises((ValueError, TypeError)):
-        StatsmodelsDE(adata=adata, design="~condition")
+        Statsmodels(adata=adata, design="~condition")
 
 
 def test_valid_count_matrix(statsmodels_stub):

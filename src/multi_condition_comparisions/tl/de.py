@@ -3,9 +3,9 @@ from typing import Any, Literal, TypedDict
 import numpy as np
 from anndata import AnnData
 
-from multi_condition_comparisions.tl.de import EdgeRDE, PyDESeq2DE, StatsmodelsDE
+from multi_condition_comparisions.methods import EdgeR, PyDESeq2, Statsmodels
 
-MethodRegistry: dict[str, Any] = {"DESeq": PyDESeq2DE, "edgeR": EdgeRDE, "statsmodels": StatsmodelsDE}
+MethodRegistry: dict[str, Any] = {"DESeq": PyDESeq2, "edgeR": EdgeR, "statsmodels": Statsmodels}
 
 
 class Contrast(TypedDict):
