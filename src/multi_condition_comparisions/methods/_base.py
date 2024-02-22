@@ -204,7 +204,9 @@ class LinearModelBase(MethodBase):
         """
         The intention is to make contrasts using this function as in glmGamPoi
 
-        >>> res <- test_de(fit, contrast = cond(cell = "B cells", condition = "stim") - cond(cell = "B cells", condition = "ctrl"))
+        >>> res < -test_de(
+        ...     fit, contrast=cond(cell="B cells", condition="stim") - cond(cell="B cells", condition="ctrl")
+        ... )
 
         Parameters
         ----------
