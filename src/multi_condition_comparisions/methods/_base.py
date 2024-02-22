@@ -25,8 +25,9 @@ ContrastType = Contrast | tuple[str, str, str]
 
 class MethodBase(ABC):
     @abstractmethod
-    @staticmethod
+    @classmethod
     def compare_groups(
+        cls,
         adata: AnnData,
         contrasts: ContrastType | Mapping[str, ContrastType],
         *,
@@ -34,6 +35,12 @@ class MethodBase(ABC):
         layer: str | None = None,
     ) -> pd.DataFrame:
         ...
+        """
+        Compare between groups in a specified column.
+
+        This interface is expected to be provided by all methods. Methods can provide other interfaces
+        on top, see e.g. {class}`LinearModelBase`.
+        """
 
 
 class LinearModelBase(MethodBase):
@@ -98,6 +105,20 @@ class LinearModelBase(MethodBase):
             raise ValueError("Non.zero elements of the matrix must be postiive.")
 
         return True
+
+    @classmethod
+    def compare_groups(
+        cls,
+        adata: AnnData,
+        contrasts: ContrastType | Mapping[str, ContrastType],
+        *,
+        mask: str | None = None,
+        layer: str | None = None,
+    ) -> pd.DataFrame:
+        # TODO: Put implementation from "wrapper function" here.
+        model = cls(adata, "~ TODO", mask=mask, layer=layer)
+        model.fit()
+        raise NotImplementedError
 
     @property
     def variables(self):
