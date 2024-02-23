@@ -3,14 +3,16 @@ import pandas as pd
 from scanpy import logging
 from scipy.sparse import issparse
 
+from multi_condition_comparisions._util import check_is_integer_matrix
+
 from ._base import LinearModelBase
 
 
 class EdgeR(LinearModelBase):
     """Differential expression test using EdgeR"""
 
-    def _check_counts(self) -> bool:
-        return self._check_count_matrix(self.adata.X)
+    def _check_counts(self):
+        check_is_integer_matrix(self.data)
 
     def fit(self, **kwargs):  # adata, design, mask, layer
         """

@@ -5,14 +5,16 @@ import statsmodels
 import statsmodels.api as sm
 from tqdm.auto import tqdm
 
+from multi_condition_comparisions._util import check_is_integer_matrix
+
 from ._base import LinearModelBase
 
 
 class Statsmodels(LinearModelBase):
     """Differential expression test using a statsmodels linear regression"""
 
-    def _check_counts(self) -> bool:
-        return self._check_count_matrix(self.adata.X)
+    def _check_counts(self):
+        check_is_integer_matrix(self.data)
 
     def fit(
         self,

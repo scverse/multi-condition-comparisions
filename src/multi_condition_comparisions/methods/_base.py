@@ -8,7 +8,6 @@ import pandas as pd
 from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
-from scipy.sparse import issparse, spmatrix
 
 
 @dataclass
@@ -24,6 +23,52 @@ ContrastType = Contrast | tuple[str, str, str]
 
 
 class MethodBase(ABC):
+    def __init__(
+        self,
+        adata: AnnData,
+        *,
+        mask: str | None = None,
+        layer: str | None = None,
+        **kwargs,
+    ):
+        """
+        Initialize the method
+
+        Parameters
+        ----------
+        adata
+            AnnData object, usually pseudobulked.
+        design
+            Model design. Can be either a design matrix, a formulaic formula.Formulaic formula in the format 'x + z' or '~x+z'.
+        mask
+            A column in adata.var that contains a boolean mask with selected features.
+        layer
+            Layer to use in fit(). If None, use the X array.
+        **kwargs
+            Keyword arguments specific to the method implementation
+        """
+        self.adata = adata
+        if mask is not None:
+            self.adata = self.adata[:, self.adata.var[mask]]
+
+        self.layer = layer
+
+        # Do some sanity checks on the input. Do them after the mask is applied.
+        # Check that counts have no NaN or Inf values.
+        if np.any(~np.isfinite(self.data)):
+            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
+        # Check that counts have numeric values.
+        if not np.issubdtype(self.adata.X.dtype, np.number):
+            raise ValueError("Counts must be numeric.")
+
+    @property
+    def data(self):
+        """Get the data matrix from anndata this object was initalized with (X or layer)"""
+        if self.layer is None:
+            return self.adata.X
+        else:
+            return self.adata.layer[self.layer]
+
     @abstractmethod
     @classmethod
     def compare_groups(
@@ -37,7 +82,6 @@ class MethodBase(ABC):
         mask: str | None = None,
         layer: str | None = None,
     ) -> pd.DataFrame:
-        ...
         """
         Compare between groups in a specified column.
 
@@ -67,6 +111,7 @@ class MethodBase(ABC):
         Pandas dataframe with results ordered by significance. If multiple comparisons were performed this
         is indicated in an additional column.
         """
+        ...
 
 
 class LinearModelBase(MethodBase):
@@ -76,6 +121,7 @@ class LinearModelBase(MethodBase):
         self,
         adata: AnnData,
         design: str | np.ndarray,
+        *,
         mask: str | None = None,
         layer: str | None = None,
         **kwargs,
@@ -96,41 +142,13 @@ class LinearModelBase(MethodBase):
         **kwargs
             Keyword arguments specific to the method implementation
         """
-        self.adata = adata
-        if mask is not None:
-            self.adata = self.adata[:, self.adata.var[mask]]
-
-        # Do some sanity checks on the input. Do them after the mask is applied.
-
-        # Check that counts have no NaN or Inf values.
-        if np.any(np.logical_or(adata.X < 0, np.isnan(self.adata.X))) or np.any(np.isinf(self.adata.X)):
-            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
-        # Check that counts have numeric values.
-        if not np.issubdtype(self.adata.X.dtype, np.number):
-            raise ValueError("Counts must be numeric.")
-
+        super().__init__(adata, mask=mask, layer=layer)
         self._check_counts()
 
-        self.layer = layer
         if isinstance(design, str):
             self.design = model_matrix(design, adata.obs)
         else:
             self.design = design
-
-    def _check_count_matrix(self, array: np.ndarray | spmatrix, tolerance: float = 1e-6) -> bool:
-        if issparse(array):
-            if not array.data.dtype.kind == "i":
-                raise ValueError("Non-zero elements of the matrix must be integers.")
-
-            if not np.all(np.abs(array.data - np.round(array.data)) < tolerance):
-                raise ValueError("Non-zero elements of the matrix must be close to integer values.")
-        else:
-            if not array.dtype.kind == "i" or not np.all(np.abs(array - np.round(array)) < tolerance):
-                raise ValueError("Matrix must be a count matrix.")
-        if (array < 0).sum() > 0:
-            raise ValueError("Non.zero elements of the matrix must be postiive.")
-
-        return True
 
     @classmethod
     def compare_groups(
@@ -152,16 +170,16 @@ class LinearModelBase(MethodBase):
         return self.design.model_spec.variables_by_source["data"]
 
     @abstractmethod
-    def _check_counts(self) -> bool:
+    def _check_counts(self) -> None:
         """
         Check that counts are valid for the specific method.
 
         Different methods may have different requirements.
 
-        Returns
-        -------
-        bool
-            True if counts are valid, False otherwise.
+        Raises
+        ------
+        ValueError
+            if the data matrix does not comply with the expectations
         """
         ...
 

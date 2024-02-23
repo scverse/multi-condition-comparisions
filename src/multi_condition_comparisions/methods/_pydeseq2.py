@@ -5,14 +5,16 @@ from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
 
+from multi_condition_comparisions._util import check_is_integer_matrix
+
 from ._base import LinearModelBase
 
 
 class PyDESeq2(LinearModelBase):
     """Differential expression test using a PyDESeq2"""
 
-    def _check_counts(self) -> bool:
-        return self._check_count_matrix(self.adata.X)
+    def _check_counts(self):
+        check_is_integer_matrix(self.data)
 
     def fit(self, **kwargs) -> pd.DataFrame:
         """
