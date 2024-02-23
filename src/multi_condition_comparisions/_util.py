@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse import issparse, spmatrix
 
 
-def check_if_integer_matrix(array: np.ndarray | spmatrix, tolerance: float = 1e-6) -> None:
+def check_is_integer_matrix(array: np.ndarray | spmatrix, tolerance: float = 1e-6) -> None:
     """Check if a matrix container integers, or floats that are close to integers.
 
     Parameters
