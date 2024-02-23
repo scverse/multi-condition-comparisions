@@ -86,7 +86,9 @@ class MethodBase(ABC):
         Compare between groups in a specified column.
 
         This interface is expected to be provided by all methods. Methods can provide other interfaces
-        on top, see e.g. {class}`LinearModelBase`.
+        on top, see e.g. {class}`LinearModelBase`. This is a high-level interface that is kept simple on purpose and
+        only supports comparisons between groups on a single column at a time. For more complex designs,
+        please use the LinearModel method classes directly.
 
         Parameters
         ----------
@@ -115,7 +117,7 @@ class MethodBase(ABC):
 
 
 class LinearModelBase(MethodBase):
-    """Base method for DE testing that is implemented per DE test."""
+    """Base class for DE methods that have a linear model interface (i.e. support design matrices and contrast testing)"""
 
     def __init__(
         self,
@@ -162,12 +164,19 @@ class LinearModelBase(MethodBase):
         mask: str | None = None,
         layer: str | None = None,
     ) -> pd.DataFrame:
-        raise NotImplementedError
+        raise NotImplementedError(
+            "TODO: should be possible to just initialize a model, and build a contrast. `cls` provides access to the current subclass"
+        )
 
     @property
     def variables(self):
         """Get the names of the variables used in the model definition"""
-        return self.design.model_spec.variables_by_source["data"]
+        try:
+            return self.design.model_spec.variables_by_source["data"]
+        except AttributeError:
+            raise ValueError(
+                "Retrieving variables is only possible if the model was initialized using a formula."
+            ) from None
 
     @abstractmethod
     def _check_counts(self) -> None:
