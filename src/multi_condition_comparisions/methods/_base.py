@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -29,8 +29,11 @@ class MethodBase(ABC):
     def compare_groups(
         cls,
         adata: AnnData,
-        contrasts: ContrastType | Mapping[str, ContrastType],
+        variable: str,
+        baseline: str | None = None,
+        groups_to_compare: str | Sequence[str] | None = None,
         *,
+        paired_by: str = None,
         mask: str | None = None,
         layer: str | None = None,
     ) -> pd.DataFrame:
@@ -40,6 +43,29 @@ class MethodBase(ABC):
 
         This interface is expected to be provided by all methods. Methods can provide other interfaces
         on top, see e.g. {class}`LinearModelBase`.
+
+        Parameters
+        ----------
+        adata
+            AnnData object
+        variable
+            variable from X or obs to compare
+        baseline
+            baseline value (one category from variable). If set to "None" this refers to "all other categories".
+        groups_to_compare
+            One or multiple categories from variable to compare against baseline. Setting this to None refers to
+            "all categories"
+        paired_by
+            Column from `obs` that contains information about paired sample (e.g. subject_id)
+        mask
+            Subset anndata by a boolean mask stored in this column in `.obs` before making any tests
+        layer
+            Use this layer instead of `.X`.
+
+        Returns
+        -------
+        Pandas dataframe with results ordered by significance. If multiple comparisons were performed this
+        is indicated in an additional column.
         """
 
 
@@ -110,14 +136,14 @@ class LinearModelBase(MethodBase):
     def compare_groups(
         cls,
         adata: AnnData,
-        contrasts: ContrastType | Mapping[str, ContrastType],
+        variable: str,
+        baseline: str | None = None,
+        groups_to_compare: str | Sequence[str] | None = None,
         *,
+        paired_by: str = None,
         mask: str | None = None,
         layer: str | None = None,
     ) -> pd.DataFrame:
-        # TODO: Put implementation from "wrapper function" here.
-        model = cls(adata, "~ TODO", mask=mask, layer=layer)
-        model.fit()
         raise NotImplementedError
 
     @property
