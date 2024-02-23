@@ -74,7 +74,7 @@ class MethodBase(ABC):
     def compare_groups(
         cls,
         adata: AnnData,
-        variable: str,
+        column: str,
         baseline: str | None = None,
         groups_to_compare: str | Sequence[str] | None = None,
         *,
@@ -92,8 +92,8 @@ class MethodBase(ABC):
         ----------
         adata
             AnnData object
-        variable
-            variable from X or obs to compare
+        column
+            column in obs that contains the grouping information
         baseline
             baseline value (one category from variable). If set to "None" this refers to "all other categories".
         groups_to_compare
@@ -154,7 +154,7 @@ class LinearModelBase(MethodBase):
     def compare_groups(
         cls,
         adata: AnnData,
-        variable: str,
+        column: str,
         baseline: str | None = None,
         groups_to_compare: str | Sequence[str] | None = None,
         *,
