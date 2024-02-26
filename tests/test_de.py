@@ -11,6 +11,10 @@ def test_package_has_version():
     assert multi_condition_comparisions.__version__ is not None
 
 
+def test_foo(test_adata_minimal):
+    StatsmodelsDE(test_adata_minimal, "~ 0 + C(condition, contr.treatment(base='B')) + donor")
+
+
 @pytest.mark.parametrize(
     "method_class,kwargs",
     [
