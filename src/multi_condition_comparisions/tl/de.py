@@ -1,4 +1,3 @@
-import re
 import warnings
 from abc import ABC, abstractmethod
 
@@ -9,7 +8,6 @@ import statsmodels
 import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import Formula
-from formulaic.model_matrix import ModelMatrix
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
@@ -91,6 +89,33 @@ class BaseMethod(ABC):
         """Get the names of the variables used in the model definition"""
         return self.design.model_spec.variables_by_source["data"]
 
+    def _get_factor_from_variable(self, variable: str):
+        """
+        Get the corresponding factor from a variable specified in a formula.
+
+        TODO unittests/examples
+        >>> _get_factor_from_variable("donor")
+        C(donor, contr.treatment)
+        """
+        try:
+            variable_terms = self.design.model_spec.variable_terms
+            terms = self.design.model_spec.terms
+        except AttributeError:
+            raise ValueError(
+                "Getting the factor from a variable only works when the design was specified as a formula."
+            ) from None
+        # Either, the variable is a term
+        if variable in terms:
+            return variable
+        # Or, there's an unambiguous mapping from variable to term:
+        elif len(variable_terms) == 1:
+            return next(iter(variable_terms))
+        # Otherwise, we can't get the term and the user requires to specify the term directly
+        else:
+            raise ValueError(
+                "No unambigous mapping from variable to term -- Please specify the term instead of its variable"
+            )
+
     @abstractmethod
     def _check_counts(self) -> bool:
         """
@@ -170,26 +195,23 @@ class BaseMethod(ABC):
         """
         The intention is to make contrasts using this function as in glmGamPoi
 
-        >>> res < -test_de(
-        ...     fit, contrast=cond(cell="B cells", condition="stim") - cond(cell="B cells", condition="ctrl")
-        ... )
+        ```r
+        res <- test_de(
+             fit, contrast=cond(cell="B cells", condition="stim") - cond(cell="B cells", condition="ctrl")
+        )
+        ```
 
         Parameters
         ----------
         **kwargs
 
         """
-
-        # TODO this is hacky - reach out to formulaic authors how to do this properly
-        def _get_var_from_colname(colname):
-            regex = re.compile(r"^.+\[T\.(.+)\]$")
-            return regex.search(colname).groups()[0]
-
-        if not isinstance(self.design, ModelMatrix):
+        if self.factor_metadata_storage is None:
             raise RuntimeError(
                 "Building contrasts with `cond` only works if you specified the model using a "
                 "formulaic formula. Please manually provide a contrast vector."
             )
+
         cond_dict = kwargs
         for var in self.variables:
             var_type = self.design.model_spec.encoder_state[var][0].value
@@ -205,12 +227,7 @@ class BaseMethod(ABC):
                 if var_type != "categorical":
                     cond_dict[var] = 0
                 else:
-                    var_cols = self.design.columns[self.design.columns.str.startswith(f"{var}[")]
-
-                    present_categories = {_get_var_from_colname(x) for x in var_cols}
-                    dropped_category = all_categories - present_categories
-                    assert len(dropped_category) == 1
-                    cond_dict[var] = next(iter(dropped_category))
+                    pass
 
         df = pd.DataFrame([kwargs])
 
