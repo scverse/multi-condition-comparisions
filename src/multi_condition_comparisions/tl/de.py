@@ -62,7 +62,7 @@ class BaseMethod(ABC):
 
         self.layer = layer
         if isinstance(design, str):
-            self.design = model_matrix(design, adata.obs)
+            self.design = model_matrix(design, adata.obs, materializer="custom_pandas")
         else:
             self.design = design
 
@@ -220,7 +220,7 @@ class StatsmodelsDE(BaseMethod):
     """Differential expression test using a statsmodels linear regression"""
 
     def _check_counts(self) -> bool:
-        return self._check_count_matrix(self.adata.X)
+        pass
 
     def fit(
         self,
