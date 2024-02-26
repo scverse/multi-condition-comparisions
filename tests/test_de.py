@@ -12,7 +12,7 @@ def test_package_has_version():
 
 
 def test_foo(test_adata_minimal):
-    model = StatsmodelsDE(test_adata_minimal, "~ 0 + C(condition, contr.treatment(base='B')) + donor")
+    model = StatsmodelsDE(test_adata_minimal, "~ 0 + C(condition, contr.treatment) + donor")
     print(model)
 
 
