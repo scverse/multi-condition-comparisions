@@ -8,7 +8,7 @@ import scanpy as sc
 import statsmodels
 import statsmodels.api as sm
 from anndata import AnnData
-from formulaic import model_matrix
+from formulaic import Formula
 from formulaic.model_matrix import ModelMatrix
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
@@ -17,9 +17,13 @@ from scanpy import logging
 from scipy.sparse import issparse, spmatrix
 from tqdm.auto import tqdm
 
+from multi_condition_comparisions._util.formulaic import get_factor_storage_and_materializer
+
 
 class BaseMethod(ABC):
     """Base method for DE testing that is implemented per DE test."""
+
+    factor_metadata_storage = None
 
     def __init__(
         self,
@@ -62,7 +66,8 @@ class BaseMethod(ABC):
 
         self.layer = layer
         if isinstance(design, str):
-            self.design = model_matrix(design, adata.obs, materializer="custom_pandas")
+            self.factor_metadata_storage, materializer_class = get_factor_storage_and_materializer()
+            self.design = materializer_class(adata.obs).get_model_matrix(Formula(design))
         else:
             self.design = design
 
