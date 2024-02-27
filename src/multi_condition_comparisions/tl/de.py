@@ -8,6 +8,7 @@ import statsmodels
 import statsmodels.api as sm
 from anndata import AnnData
 from formulaic import Formula
+from formulaic.parser.types import Factor
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
@@ -53,14 +54,14 @@ class BaseMethod(ABC):
 
         # Do some sanity checks on the input. Do them after the mask is applied.
 
-        # Check that counts have no NaN or Inf values.
-        if np.any(np.logical_or(adata.X < 0, np.isnan(self.adata.X))) or np.any(np.isinf(self.adata.X)):
-            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
-        # Check that counts have numeric values.
-        if not np.issubdtype(self.adata.X.dtype, np.number):
-            raise ValueError("Counts must be numeric.")
+        # # Check that counts have no NaN or Inf values.
+        # if np.any(np.logical_or(adata.X < 0, np.isnan(self.adata.X))) or np.any(np.isinf(self.adata.X)):
+        #     raise ValueError("Counts cannot contain negative, NaN or Inf values.")
+        # # Check that counts have numeric values.
+        # if not np.issubdtype(self.adata.X.dtype, np.number):
+        #     raise ValueError("Counts must be numeric.")
 
-        self._check_counts()
+        # self._check_counts()
 
         self.layer = layer
         if isinstance(design, str):
@@ -89,12 +90,12 @@ class BaseMethod(ABC):
         """Get the names of the variables used in the model definition"""
         return self.design.model_spec.variables_by_source["data"]
 
-    def _get_factor_from_variable(self, variable: str):
+    def _get_term_from_variable(self, variable: str):
         """
         Get the corresponding factor from a variable specified in a formula.
 
         TODO unittests/examples
-        >>> _get_factor_from_variable("donor")
+        >>> _get_terms_from_variable("donor")
         C(donor, contr.treatment)
         """
         try:
@@ -213,25 +214,19 @@ class BaseMethod(ABC):
             )
 
         cond_dict = kwargs
-        for var in self.variables:
-            var_type = self.design.model_spec.encoder_state[var][0].value
-            if var_type == "categorical":
-                all_categories = set(self.design.model_spec.encoder_state[var][1]["categories"])
-            if var in kwargs:
-                if var_type == "categorical" and kwargs[var] not in all_categories:
-                    raise ValueError(
-                        f"You specified a non-existant category for {var}. Possible categories: {', '.join(all_categories)}"
-                    )
-            else:
-                # fill with default values
-                if var_type != "categorical":
-                    cond_dict[var] = 0
+        # convert variables to terms in the cond dict (if possible)
+        cond_dict = {self._get_term_from_variable(term): value for term, value in cond_dict.items()}
+
+        # fill cond dict with default values
+        for term in self.factor_metadata_storage:
+            if term not in cond_dict:
+                metadata = self.factor_metadata_storage[term]
+                if metadata.kind == Factor.Kind.CATEGORICAL:
+                    cond_dict[term] = metadata.drop_field
                 else:
-                    pass
+                    cond_dict[term] = 0
 
-        df = pd.DataFrame([kwargs])
-
-        return self.design.model_spec.get_model_matrix(df)
+        return self.design.model_spec.get_model_matrix(pd.DataFrame([cond_dict]))
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> object:
         """Build a simple contrast for pairwise comparisons.  In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""

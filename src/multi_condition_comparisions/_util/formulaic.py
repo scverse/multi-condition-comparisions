@@ -55,7 +55,14 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
         def _encode_evaled_factor(
             self, factor: EvaluatedFactor, spec: ModelSpec, drop_rows: Sequence[int], reduced_rank: bool = False
         ) -> dict[str, Any]:
-            assert factor.expr not in self.factor_metadata_storage, "Factor already present in metadata storage"
+            if factor.expr in self.factor_metadata_storage and not (
+                factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache
+            ):
+                # the same factor might be referred to multiple times in the same formula -- for instance, when using
+                # an interaction term such as group*condition. In that case formulaic is reuding a cached encoding.
+                # However, if it's not just reusing an existing encoding, something unexpected is happening that
+                # we haven't accounted for yet.
+                raise AssertionError("Factor already present in metadata storage and not reusing cached encoding")
             self.factor_metadata_storage[factor.expr] = FactorMetadata(name=factor.expr, reduced_rank=reduced_rank)
             return super()._encode_evaled_factor(factor, spec, drop_rows, reduced_rank)
 
