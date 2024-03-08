@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from pandas import testing as tm
 
-from multi_condition_comparisions.tl.wrapper import MethodRegistry, run_de
+from multi_condition_comparisions.tl.de import MethodRegistry, run_de
 
 
 def test_arg_types():

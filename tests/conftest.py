@@ -4,8 +4,6 @@ import pandas as pd
 import pytest
 from pydeseq2.utils import load_example_data
 
-from multi_condition_comparisions.tl.de import Statsmodels
-
 
 @pytest.fixture
 def test_counts():
@@ -58,8 +56,3 @@ def test_adata_minimal():
         ]
     )
     return ad.AnnData(X=X, obs=obs, var=var)
-
-
-@pytest.fixture
-def statsmodels_stub(test_adata):
-    return Statsmodels(adata=test_adata, design="~condition")

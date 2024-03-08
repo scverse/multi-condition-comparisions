@@ -69,8 +69,8 @@ class MethodBase(ABC):
         else:
             return self.adata.layer[self.layer]
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def compare_groups(
         cls,
         adata: AnnData,

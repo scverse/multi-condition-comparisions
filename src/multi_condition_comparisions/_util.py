@@ -18,7 +18,7 @@ def check_is_integer_matrix(array: np.ndarray | spmatrix, tolerance: float = 1e-
         if the matrix contains valuese that are not close to integers
     """
     if issparse(array):
-        if not array.data.dtype.kind == "i" or np.all(np.abs(array.data - np.round(array.data)) < tolerance):
+        if not array.data.dtype.kind == "i" or not np.all(np.abs(array.data - np.round(array.data)) < tolerance):
             raise ValueError("Non-zero elements of the matrix must be close to integer values.")
     else:
         if not array.dtype.kind == "i" or not np.all(np.abs(array - np.round(array)) < tolerance):

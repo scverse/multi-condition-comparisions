@@ -1,2 +1,2 @@
 from . import de
-from .wrapper import run_de
+from .de import run_de
