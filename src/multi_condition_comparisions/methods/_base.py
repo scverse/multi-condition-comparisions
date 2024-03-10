@@ -219,7 +219,7 @@ class LinearModelBase(MethodBase):
             Each contrast can be either a vector of coefficients (the most general case), a string, or a some fancy DSL
             (details still need to be figured out).
 
-            or a tuple withe three elements contrasts = ("condition", "control", "treatment")
+            or a tuple with three elements contrasts = ("condition", "control", "treatment")
         """
         if not isinstance(contrasts, dict):
             contrasts = {None: contrasts}
