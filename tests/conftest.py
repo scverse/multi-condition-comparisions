@@ -39,7 +39,7 @@ def test_adata_minimal():
             ["A", "D3", "Y", 212],
             ["B", "D3", "Y", 6023],
         ],
-        columns=["condition", "donor", "other", "cont"],
+        columns=["condition", "donor", "other", "continuous"],
     )
     var = pd.DataFrame(index=["gene1", "gene2"])
     X = np.array(
