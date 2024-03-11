@@ -41,19 +41,20 @@ def test_adata_minimal():
         },
     )
     var = pd.DataFrame(index=["gene1", "gene2"])
-    group1 = np.random.negative_binomial(10, 0.2, n_obs // 2)  # large mean
-    group2 = np.random.negative_binomial(5, 0.5, n_obs // 2)  # small mean
+    rng = np.random.default_rng(9)  # make tests deterministic
+    group1 = rng.negative_binomial(20, 0.1, n_obs // 2)  # large mean
+    group2 = rng.negative_binomial(5, 0.5, n_obs // 2)  # small mean
 
     condition_data = np.empty((n_obs,), dtype=group1.dtype)
     condition_data[0::2] = group1
     condition_data[1::2] = group2
 
     donor_data = np.empty((n_obs,), dtype=group1.dtype)
-    donor_data[0:n_donors] = group1[:n_donors]
-    donor_data[n_donors : (2 * n_donors)] = group2[n_donors:]
+    donor_data[0:n_donors] = group2[:n_donors]
+    donor_data[n_donors : (2 * n_donors)] = group1[n_donors:]
 
     donor_data[(2 * n_donors) : (3 * n_donors)] = group2[:n_donors]
-    donor_data[(3 * n_donors) :] = group2[n_donors:]
+    donor_data[(3 * n_donors) :] = group1[n_donors:]
 
     X = np.vstack([condition_data, donor_data]).T
     return ad.AnnData(X=X, obs=obs, var=var)
