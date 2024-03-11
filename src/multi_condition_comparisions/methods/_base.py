@@ -1,5 +1,4 @@
 import re
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -171,11 +170,12 @@ class LinearModelBase(MethodBase):
             test_kwargs = {}
         if fit_kwargs is None:
             fit_kwargs = {}
+        design = f"~{column}"
         if paired_by is not None:
-            warnings.warn("Cannot use `paired_by` with linear tests.  Ignoring parameter", UserWarning, stacklevel=2)
+            design += f"+{paired_by}"
         if isinstance(groups_to_compare, str):
             groups_to_compare = [groups_to_compare]
-        model = cls(adata, design=f"~{column}", mask=mask, layer=layer)
+        model = cls(adata, design=design, mask=mask, layer=layer)
 
         ## Fit model
         model.fit(**fit_kwargs)
