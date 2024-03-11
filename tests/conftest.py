@@ -37,6 +37,7 @@ def test_adata_minimal():
             "condition": ["A", "B"] * (n_obs // 2),
             "donor": sum(([f"D{i}"] * n_donors for i in range(n_obs // n_donors)), []),
             "other": (["X"] * (n_obs // 4)) + (["Y"] * ((3 * n_obs) // 4)),
+            "pairing": sum(([str(i), str(i)] for i in range(n_obs // 2)), []),
             "continuous": np.random.uniform(0, 1) * 4000,
         },
     )
