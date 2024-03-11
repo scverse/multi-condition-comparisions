@@ -55,20 +55,19 @@ class SimpleComparisonBase(MethodBase):
             fit_kwargs = {}
         if len(fit_kwargs) or len(test_kwargs):
             warnings.warn("Simple tests do not use fit or test kwargs", UserWarning, stacklevel=2)
+        if paired_by is not None:
+            adata = adata.copy()[adata.obs.sort_values(paired_by).index, :]
         model = cls(adata, mask=mask, layer=layer)
         if isinstance(groups_to_compare, str):
             groups_to_compare = [groups_to_compare]
 
         res_dfs = []
-        obs_df = model.adata.obs.copy()
-        if paired_by is not None:
-            obs_df = obs_df.sort_values(paired_by)
         for group_to_compare in groups_to_compare:
-            comparison_idx = np.where(obs_df[column] == group_to_compare)[0]
+            comparison_idx = np.where(adata.obs[column] == group_to_compare)[0]
             if baseline is None:
-                baseline_idx = np.where(obs_df[column] != group_to_compare)[0]
+                baseline_idx = np.where(adata.obs[column] != group_to_compare)[0]
             else:
-                baseline_idx = np.where(obs_df[column] == baseline)[0]
+                baseline_idx = np.where(adata.obs[column] == baseline)[0]
             res_dfs.append(
                 model._compare_single_group(baseline_idx, comparison_idx).assign(
                     comparison=f"{group_to_compare}_vs_{baseline if baseline is not None else 'rest'}"
