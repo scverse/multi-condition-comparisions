@@ -4,7 +4,7 @@ import pytest
 from scipy.sparse import csr_matrix
 
 from multi_condition_comparisions._util import check_is_integer_matrix
-from multi_condition_comparisions.tl.de import Statsmodels
+from multi_condition_comparisions.methods import Statsmodels
 
 
 @pytest.mark.parametrize("invalid_input", [np.nan, np.inf, "foo"])
