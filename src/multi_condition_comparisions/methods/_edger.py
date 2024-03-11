@@ -53,11 +53,6 @@ class EdgeR(LinearModelBase):
                 "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
             ) from None
 
-        ## -- Convert dataframe
-        # Feature selection
-        # if mask is not None:
-        #    self.adata = self.adata[:,~self.adata.var[mask]]
-
         # Convert dataframe
         with localconverter(ro.default_converter + numpy2ri.converter):
             expr = self.adata.X if self.layer is None else self.adata.layers[self.layer]

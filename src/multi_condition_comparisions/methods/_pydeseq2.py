@@ -1,3 +1,4 @@
+import os
 import warnings
 
 import pandas as pd
@@ -25,15 +26,15 @@ class PyDESeq2(LinearModelBase):
         Params:
         ----------
         **kwargs
-            Keyword arguments specific to DeseqDataSet()
+            Keyword arguments specific to DeseqDataSet(), except for `n_cpus` which will use all available CPUs minus one if the argument is not passed.
         """
-        inference = DefaultInference(n_cpus=3)
+        inference = DefaultInference(n_cpus=kwargs.pop("n_cpus", os.cpu_count() - 1))
         covars = self.design.columns.tolist()
         if "Intercept" not in covars:
             warnings.warn(
                 "Warning: Pydeseq is hard-coded to use Intercept, please include intercept into the model", stacklevel=2
             )
-        processed_covars = [col.split("[")[0] for col in covars if col != "Intercept"]
+        processed_covars = list({col.split("[")[0] for col in covars if col != "Intercept"})
         dds = DeseqDataSet(
             adata=self.adata, design_factors=processed_covars, refit_cooks=True, inference=inference, **kwargs
         )

@@ -1,5 +1,6 @@
 """Simple tests such as t-test, wilcoxon"""
 
+import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 
@@ -39,18 +40,24 @@ class SimpleComparisonBase(MethodBase):
         cls,
         adata: AnnData,
         column: str,
-        baseline: str | None = None,
-        groups_to_compare: str | Sequence[str] | None = None,
+        baseline: str,
+        groups_to_compare: str | Sequence[str],
         *,
-        paired_by: str = None,
+        paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
+        fit_kwargs: dict = None,
+        test_kwargs: dict = None,
     ) -> DataFrame:
+        if test_kwargs is None:
+            test_kwargs = {}
+        if fit_kwargs is None:
+            fit_kwargs = {}
+        if len(fit_kwargs) or len(test_kwargs):
+            warnings.warn("Simple tests do not use fit or test kwargs", UserWarning, stacklevel=2)
         model = cls(adata, mask=mask, layer=layer)
         if isinstance(groups_to_compare, str):
             groups_to_compare = [groups_to_compare]
-        if groups_to_compare is None:
-            groups_to_compare = list(model.adata.obs[column].unique())
 
         res_dfs = []
         obs_df = model.adata.obs.copy()
@@ -91,9 +98,9 @@ class WilcoxonTest(SimpleComparisonBase):
         res = []
         for var in tqdm(self.adata.var_names):
             tmp_x0 = x0[:, self.adata.var_names == var]
-            tmp_x0 = np.asarray(x0.todense()).flatten() if issparse(x0) else x0.flatten()
+            tmp_x0 = np.asarray(tmp_x0.todense()).flatten() if issparse(tmp_x0) else tmp_x0.flatten()
             tmp_x1 = x1[:, self.adata.var_names == var]
-            tmp_x1 = np.asarray(x1.todense()).flatten() if issparse(x1) else x1.flatten()
+            tmp_x1 = np.asarray(tmp_x1.todense()).flatten() if issparse(tmp_x1) else tmp_x1.flatten()
             pval = test_fun(x=tmp_x0, y=tmp_x1).pvalue
             mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
             mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)

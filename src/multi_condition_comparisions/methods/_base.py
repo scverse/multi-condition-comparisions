@@ -1,4 +1,5 @@
 import re
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -75,8 +76,8 @@ class MethodBase(ABC):
         cls,
         adata: AnnData,
         column: str,
-        baseline: str | None = None,
-        groups_to_compare: str | Sequence[str] | None = None,
+        baseline: str,
+        groups_to_compare: str | Sequence[str],
         *,
         paired_by: str = None,
         mask: str | None = None,
@@ -157,16 +158,38 @@ class LinearModelBase(MethodBase):
         cls,
         adata: AnnData,
         column: str,
-        baseline: str | None = None,
-        groups_to_compare: str | Sequence[str] | None = None,
+        baseline: str,
+        groups_to_compare: str | Sequence[str],
         *,
-        paired_by: str = None,
+        paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
+        fit_kwargs: dict = None,
+        test_kwargs: dict = None,
     ) -> pd.DataFrame:
-        raise NotImplementedError(
-            "TODO: should be possible to just initialize a model, and build a contrast. `cls` provides access to the current subclass"
+        if test_kwargs is None:
+            test_kwargs = {}
+        if fit_kwargs is None:
+            fit_kwargs = {}
+        if paired_by is not None:
+            warnings.warn("Cannot use `paired_by` with linear tests.  Ignoring paramere", UserWarning, stacklevel=2)
+        if isinstance(groups_to_compare, str):
+            groups_to_compare = [groups_to_compare]
+        model = cls(adata, design=f"~{column}", mask=mask, layer=layer)
+
+        ## Fit model
+        model.fit(**fit_kwargs)
+
+        ## Test contrasts
+        de_res = model.test_contrasts(
+            {
+                group_to_compare: model.contrast(column=column, baseline=baseline, group_to_compare=group_to_compare)
+                for group_to_compare in groups_to_compare
+            },
+            **test_kwargs,
         )
+
+        return de_res
 
     @property
     def variables(self):
@@ -208,7 +231,9 @@ class LinearModelBase(MethodBase):
     def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
         ...
 
-    def test_contrasts(self, contrasts: list[str] | dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
+    def test_contrasts(
+        self, contrasts: list[str] | dict[str, np.ndarray] | dict[str, list] | np.ndarray, **kwargs
+    ) -> pd.DataFrame:
         """
         Conduct a specific test.  Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
@@ -303,6 +328,6 @@ class LinearModelBase(MethodBase):
 
         return self.design.model_spec.get_model_matrix(df)
 
-    def contrast(self, column: str, baseline: str, group_to_compare: str) -> object:
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> list:
         """Build a simple contrast for pairwise comparisons.  In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
         return [column, baseline, group_to_compare]
