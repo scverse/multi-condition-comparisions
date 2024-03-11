@@ -1,4 +1,5 @@
 import os
+import re
 import warnings
 
 import pandas as pd
@@ -34,7 +35,7 @@ class PyDESeq2(LinearModelBase):
             warnings.warn(
                 "Warning: Pydeseq is hard-coded to use Intercept, please include intercept into the model", stacklevel=2
             )
-        processed_covars = list({col.split("[")[0] for col in covars if col != "Intercept"})
+        processed_covars = list({re.sub(r"\[T\.(.*)\]", "", col) for col in covars if col != "Intercept"})
         dds = DeseqDataSet(
             adata=self.adata, design_factors=processed_covars, refit_cooks=True, inference=inference, **kwargs
         )
