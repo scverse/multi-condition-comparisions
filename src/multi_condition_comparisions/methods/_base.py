@@ -172,7 +172,7 @@ class LinearModelBase(MethodBase):
         if fit_kwargs is None:
             fit_kwargs = {}
         if paired_by is not None:
-            warnings.warn("Cannot use `paired_by` with linear tests.  Ignoring paramere", UserWarning, stacklevel=2)
+            warnings.warn("Cannot use `paired_by` with linear tests.  Ignoring parameter", UserWarning, stacklevel=2)
         if isinstance(groups_to_compare, str):
             groups_to_compare = [groups_to_compare]
         model = cls(adata, design=f"~{column}", mask=mask, layer=layer)
