@@ -4,7 +4,7 @@ import statsmodels.api as sm
 from pandas import testing as tm
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import EdgeR, PyDESeq2, Statsmodels
+from multi_condition_comparisions.methods import EdgeR, PyDESeq2, Statsmodels, WilcoxonTest
 
 
 def test_package_has_version():
@@ -95,3 +95,13 @@ def test_edger_complex(test_adata):
     expected_columns = {"pvals", "pvals_adj", "logfoldchanges"}
     assert expected_columns.issubset(set(res_df.columns))
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
+
+
+@pytest.mark.parametrize("paired_by", [None, "pairings"])
+def test_non_parametric(test_adata, paired_by):
+    if paired_by is not None:
+        test_adata.obs[paired_by] = list(range(sum(test_adata.obs["condition"] == "A"))) * 2
+    res_df = WilcoxonTest.compare_groups(
+        adata=test_adata, column="condition", baseline="A", groups_to_compare="B", paired_by=paired_by
+    )
+    assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))  # TODO: which of these should actually be <.05?

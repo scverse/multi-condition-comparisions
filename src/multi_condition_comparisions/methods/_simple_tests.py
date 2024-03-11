@@ -52,16 +52,16 @@ class SimpleComparisonBase(MethodBase):
         if groups_to_compare is None:
             groups_to_compare = list(model.adata.obs[column].unique())
 
-        if paired_by is not None:
-            raise NotImplementedError("TODO: reorder the indices accordingly and pass to _compare_single_group")
-
         res_dfs = []
+        obs_df = model.adata.obs.copy()
+        if paired_by is not None:
+            obs_df = obs_df.sort_values(paired_by)
         for group_to_compare in groups_to_compare:
-            comparison_idx, _ = np.where(model.adata.obs[column] == group_to_compare)
+            comparison_idx = np.where(obs_df[column] == group_to_compare)[0]
             if baseline is None:
-                baseline_idx, _ = np.where(model.adata.obs[column] != group_to_compare)
+                baseline_idx = np.where(obs_df[column] != group_to_compare)[0]
             else:
-                baseline_idx, _ = np.where(model.adata.obs[column] == baseline)
+                baseline_idx = np.where(obs_df[column] == baseline)[0]
             res_dfs.append(
                 model._compare_single_group(baseline_idx, comparison_idx).assign(
                     comparison=f"{group_to_compare}_vs_{baseline if baseline is not None else 'rest'}"
@@ -95,5 +95,7 @@ class WilcoxonTest(SimpleComparisonBase):
             tmp_x1 = x1[:, self.adata.var_names == var]
             tmp_x1 = np.asarray(x1.todense()).flatten() if issparse(x1) else x1.flatten()
             pval = test_fun(x=tmp_x0, y=tmp_x1).pvalue
-            res.append({"variable": var, "pvalue": pval, "fold_change": "TODO"})
-        return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
+            mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
+            mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
+            res.append({"variable": var, "pvals": pval, "fold_change": np.log(mean_x1) - np.log(mean_x0)})
+        return pd.DataFrame(res).sort_values("pvals").set_index("variable")
