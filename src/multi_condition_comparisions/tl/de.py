@@ -113,8 +113,7 @@ class BaseMethod(ABC):
         ...
 
     @abstractmethod
-    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame:
-        ...
+    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame: ...
 
     def test_contrasts(self, contrasts: list[str] | dict[str, np.ndarray] | np.ndarray, **kwargs) -> pd.DataFrame:
         """
