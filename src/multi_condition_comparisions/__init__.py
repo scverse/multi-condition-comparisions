@@ -1,7 +1,7 @@
 from importlib.metadata import version
 
-from . import pl, pp, tl
+from . import methods, pl
 
-__all__ = ["pl", "pp", "tl"]
+__all__ = ["pl", "methods"]
 
 __version__ = version("multi-condition-comparisions")
