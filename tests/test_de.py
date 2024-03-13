@@ -4,7 +4,7 @@ import statsmodels.api as sm
 from pandas import testing as tm
 
 import multi_condition_comparisions
-from multi_condition_comparisions.tl.de import EdgeRDE, PyDESeq2DE, StatsmodelsDE
+from multi_condition_comparisions.methods import EdgeR, PyDESeq2, Statsmodels, WilcoxonTest
 
 
 def test_package_has_version():
@@ -15,10 +15,10 @@ def test_package_has_version():
     "method_class,kwargs",
     [
         # OLS
-        (StatsmodelsDE, {}),
+        (Statsmodels, {}),
         # Negative Binomial
         (
-            StatsmodelsDE,
+            Statsmodels,
             {"regression_model": sm.GLM, "family": sm.families.NegativeBinomial()},
         ),
     ],
@@ -40,7 +40,7 @@ def test_pydeseq2_simple(test_adata):
     2. Fitted
     3. and that test_contrast returns a DataFrame with the correct number of rows.
     """
-    method = PyDESeq2DE(adata=test_adata, design="~condition")
+    method = PyDESeq2(adata=test_adata, design="~condition")
     method.fit()
     res_df = method.test_contrasts(["condition", "A", "B"])
 
@@ -54,7 +54,7 @@ def test_edger_simple(test_adata):
     2. Fitted
     3. and that test_contrast returns a DataFrame with the correct number of rows.
     """
-    method = EdgeRDE(adata=test_adata, design="~condition")
+    method = EdgeR(adata=test_adata, design="~condition")
     method.fit()
     res_df = method.test_contrasts(["condition", "A", "B"])
 
@@ -66,7 +66,7 @@ def test_pydeseq2_complex(test_adata):
     method returns a dataframe with the correct number of rows.
     """
     test_adata.obs["condition1"] = test_adata.obs["condition"].copy()
-    method = PyDESeq2DE(adata=test_adata, design="~condition1+group")
+    method = PyDESeq2(adata=test_adata, design="~condition1+group")
     method.fit()
     res_df = method.test_contrasts(["condition1", "A", "B"])
 
@@ -84,7 +84,7 @@ def test_edger_complex(test_adata):
     method returns a dataframe with the correct number of rows.
     """
     test_adata.obs["condition1"] = test_adata.obs["condition"].copy()
-    method = EdgeRDE(adata=test_adata, design="~condition1+group")
+    method = EdgeR(adata=test_adata, design="~condition1+group")
     method.fit()
     res_df = method.test_contrasts(["condition1", "A", "B"])
 
@@ -95,3 +95,13 @@ def test_edger_complex(test_adata):
     expected_columns = {"pvals", "pvals_adj", "logfoldchanges"}
     assert expected_columns.issubset(set(res_df.columns))
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
+
+
+@pytest.mark.parametrize("paired_by", [None, "pairings"])
+def test_non_parametric(test_adata, paired_by):
+    if paired_by is not None:
+        test_adata.obs[paired_by] = list(range(sum(test_adata.obs["condition"] == "A"))) * 2
+    res_df = WilcoxonTest.compare_groups(
+        adata=test_adata, column="condition", baseline="A", groups_to_compare="B", paired_by=paired_by
+    )
+    assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))  # TODO: which of these should actually be <.05?
