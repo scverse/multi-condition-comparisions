@@ -121,13 +121,15 @@ def test_t(test_adata, paired_by):
 
 @pytest.mark.parametrize("seed", range(10))
 def test_simple_comparison_pairing(test_adata_minimal, seed):
+    """Test that paired samples are properly matched in a paired test"""
+
     class MockSimpleComparison(SimpleComparisonBase):
         @staticmethod
-        def _get_test_fun():
+        def _test():
             return None
 
         def _compare_single_group(
-            self, baseline_idx: np.ndarray, comparison_idx: np.ndarray, *, paired: bool = False
+            self, baseline_idx: np.ndarray, comparison_idx: np.ndarray, *, paired: bool = False, **kwargs
         ) -> DataFrame:
             assert paired
             x0 = self.adata[baseline_idx, :]

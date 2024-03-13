@@ -1,7 +1,8 @@
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 
 import numpy as np
 import pandas as pd
@@ -81,6 +82,8 @@ class MethodBase(ABC):
         paired_by: str = None,
         mask: str | None = None,
         layer: str | None = None,
+        fit_kwargs: Mapping = MappingProxyType({}),
+        test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
         """
         Compare between groups in a specified column.
@@ -163,13 +166,9 @@ class LinearModelBase(MethodBase):
         paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
-        fit_kwargs: dict = None,
-        test_kwargs: dict = None,
+        fit_kwargs: Mapping = MappingProxyType({}),
+        test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
-        if test_kwargs is None:
-            test_kwargs = {}
-        if fit_kwargs is None:
-            fit_kwargs = {}
         design = f"~{column}"
         if paired_by is not None:
             design += f"+{paired_by}"

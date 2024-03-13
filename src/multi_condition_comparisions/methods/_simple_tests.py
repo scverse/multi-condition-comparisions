@@ -2,7 +2,8 @@
 
 import warnings
 from abc import abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Mapping, Sequence
+from types import MappingProxyType
 
 import numpy as np
 import pandas as pd
@@ -18,11 +19,33 @@ from ._base import MethodBase
 class SimpleComparisonBase(MethodBase):
     @staticmethod
     @abstractmethod
-    def _get_test_fun(paired) -> Callable:
-        """Return a function with the same signature as e.g. `scipy.stats.wilcoxon`"""
+    def _test(x0: np.ndarray, x1: np.ndarray, paired: bool, **kwargs) -> float:
+        """
+        Perform a statistical test between values in x0 and x1.
+
+        If `paired` is True, x0 and x1 must be of the same length and ordered such that
+        paired elements have the same position.
+
+        Parameters
+        ----------
+        x0
+            array with baseline values
+        x1
+            array with values to compare
+        paired
+            indicates whether to perform a paired test
+        **kwargs
+            kwargs passed to the test function
+
+        Returns
+        -------
+        p-value
+        """
         ...
 
-    def _compare_single_group(self, baseline_idx: np.ndarray, comparison_idx: np.ndarray, *, paired: bool) -> DataFrame:
+    def _compare_single_group(
+        self, baseline_idx: np.ndarray, comparison_idx: np.ndarray, *, paired: bool, **kwargs
+    ) -> DataFrame:
         """
         Perform a single comparison between two groups.
 
@@ -35,10 +58,11 @@ class SimpleComparisonBase(MethodBase):
         paired
             whether or not to perform a paired test. Note that in the case of a paired test,
             the indices must be ordered such that paired observations appear at the same position.
+        **kwargs
+            kwargs passed to the test function
         """
         if paired:
             assert len(baseline_idx) == len(comparison_idx), "For a paired test, indices must be of the same length"
-        test_fun = self._get_test_fun(paired)
 
         x0 = self.data[baseline_idx, :]
         x1 = self.data[comparison_idx, :]
@@ -55,7 +79,7 @@ class SimpleComparisonBase(MethodBase):
             tmp_x0 = np.asarray(tmp_x0.todense()).flatten() if issparse(tmp_x0) else tmp_x0.flatten()
             tmp_x1 = x1[:, self.adata.var_names == var]
             tmp_x1 = np.asarray(tmp_x1.todense()).flatten() if issparse(tmp_x1) else tmp_x1.flatten()
-            pval = test_fun(x=tmp_x0, y=tmp_x1).pvalue
+            pval = self._test(tmp_x0, tmp_x1, paired, **kwargs)
             mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
             mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
             res.append({"variable": var, "pvals": pval, "fold_change": np.log(mean_x1) - np.log(mean_x0)})
@@ -72,15 +96,11 @@ class SimpleComparisonBase(MethodBase):
         paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
-        fit_kwargs: dict = None,
-        test_kwargs: dict = None,
+        fit_kwargs: Mapping = MappingProxyType({}),
+        test_kwargs: Mapping = MappingProxyType({}),
     ) -> DataFrame:
-        if test_kwargs is None:
-            test_kwargs = {}
-        if fit_kwargs is None:
-            fit_kwargs = {}
-        if len(fit_kwargs) or len(test_kwargs):
-            warnings.warn("Simple tests do not use fit or test kwargs", UserWarning, stacklevel=2)
+        if len(fit_kwargs):
+            warnings.warn("fit_kwargs not used for simple tests.", UserWarning, stacklevel=2)
         paired = paired_by is not None
         if paired:
             adata = adata.copy()[adata.obs.sort_values(paired_by).index, :]
@@ -96,7 +116,7 @@ class SimpleComparisonBase(MethodBase):
             else:
                 baseline_idx = np.where(adata.obs[column] == baseline)[0]
             res_dfs.append(
-                model._compare_single_group(baseline_idx, comparison_idx, paired=paired).assign(
+                model._compare_single_group(baseline_idx, comparison_idx, paired=paired, **test_kwargs).assign(
                     comparison=f"{group_to_compare}_vs_{baseline if baseline is not None else 'rest'}"
                 )
             )
@@ -110,19 +130,19 @@ class WilcoxonTest(SimpleComparisonBase):
     """
 
     @staticmethod
-    def _get_test_fun(paired) -> Callable:
+    def _test(x0: np.ndarray, x1: np.ndarray, paired: bool, **kwargs) -> float:
         if paired:
-            return scipy.stats.wilcoxon
+            return scipy.stats.wilcoxon(x0, x1, **kwargs).pvalue
         else:
-            return scipy.stats.mannwhitneyu
+            return scipy.stats.mannwhitneyu(x0, x1, **kwargs).pvalue
 
 
 class TTest(SimpleComparisonBase):
     """Perform a unpaired or paired T-test"""
 
     @staticmethod
-    def _get_test_fun(paired) -> Callable:
+    def _test(x0: np.ndarray, x1: np.ndarray, paired: bool, **kwargs) -> float:
         if paired:
-            return scipy.stats.ttest_rel
+            return scipy.stats.ttest_rel(x0, x1, **kwargs).pvalue
         else:
-            return scipy.stats.ttest_ind
+            return scipy.stats.ttest_ind(x0, x1, **kwargs).pvalue
