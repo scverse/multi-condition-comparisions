@@ -136,6 +136,7 @@ def test_simple_comparison_pairing(test_adata_minimal, seed):
             x1 = self.adata[comparison_idx, :]
             assert np.all(x0.obs["condition"] == "A")
             assert np.all(x1.obs["condition"] == "B")
+            assert np.all(x0.obs["pairing"].values == x1.obs["pairing"].values)
             return pd.DataFrame()
 
     rng = np.random.default_rng(seed)
@@ -143,5 +144,5 @@ def test_simple_comparison_pairing(test_adata_minimal, seed):
     tmp_adata = test_adata_minimal[shuffle_adata_idx, :].copy()
 
     MockSimpleComparison.compare_groups(
-        tmp_adata, column="condition", baseline="A", groups_to_compare=["B"], paired_by="donor"
+        tmp_adata, column="condition", baseline="A", groups_to_compare=["B"], paired_by="pairing"
     )
