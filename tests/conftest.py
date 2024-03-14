@@ -2,6 +2,7 @@ import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse as sp
 from pydeseq2.utils import load_example_data
 
 
@@ -28,8 +29,8 @@ def test_adata(test_counts, test_metadata):
     return ad.AnnData(X=test_counts, obs=test_metadata)
 
 
-@pytest.fixture
-def test_adata_minimal():
+@pytest.fixture(params=[np.array, sp.csr_matrix, sp.csc_matrix])
+def test_adata_minimal(request):
     n_obs = 80
     n_donors = n_obs // 4
     rng = np.random.default_rng(9)  # make tests deterministic
@@ -57,5 +58,5 @@ def test_adata_minimal():
     donor_data[(2 * n_donors) : (3 * n_donors)] = group2[:n_donors]
     donor_data[(3 * n_donors) :] = group1[n_donors:]
 
-    X = np.vstack([condition_data, donor_data]).T
+    X = request.param(np.vstack([condition_data, donor_data]).T)
     return ad.AnnData(X=X, obs=obs, var=var)

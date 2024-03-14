@@ -1,9 +1,9 @@
 import pytest
 
-from multi_condition_comparisions.methods import EdgeR, PyDESeq2, Statsmodels, WilcoxonTest
+from multi_condition_comparisions.methods import EdgeR, PyDESeq2, Statsmodels, TTest, WilcoxonTest
 
 
-@pytest.mark.parametrize("method", [WilcoxonTest, Statsmodels, PyDESeq2, EdgeR])
+@pytest.mark.parametrize("method", [WilcoxonTest, TTest, Statsmodels, PyDESeq2, EdgeR])
 @pytest.mark.parametrize("paired_by", ["pairing", None])
 def test_unified(test_adata_minimal, method, paired_by):
     res_df = method.compare_groups(

@@ -80,8 +80,8 @@ class SimpleComparisonBase(MethodBase):
             tmp_x1 = x1[:, self.adata.var_names == var]
             tmp_x1 = np.asarray(tmp_x1.todense()).flatten() if issparse(tmp_x1) else tmp_x1.flatten()
             pval = self._test(tmp_x0, tmp_x1, paired, **kwargs)
-            mean_x0 = np.asarray(np.mean(x0, axis=0)).flatten().astype(dtype=float)
-            mean_x1 = np.asarray(np.mean(x1, axis=0)).flatten().astype(dtype=float)
+            mean_x0 = np.mean(x0)
+            mean_x1 = np.mean(x1)
             res.append({"variable": var, "pvals": pval, "fold_change": np.log(mean_x1) - np.log(mean_x0)})
         return pd.DataFrame(res).sort_values("pvals").set_index("variable")
 
