@@ -10,7 +10,7 @@ import pandas as pd
 import scipy.stats
 from anndata import AnnData
 from pandas.core.api import DataFrame as DataFrame
-from scipy.sparse import issparse
+from scipy.sparse import diags, issparse
 from tqdm.auto import tqdm
 
 from ._base import MethodBase
@@ -102,19 +102,32 @@ class SimpleComparisonBase(MethodBase):
         if len(fit_kwargs):
             warnings.warn("fit_kwargs not used for simple tests.", UserWarning, stacklevel=2)
         paired = paired_by is not None
-        if paired:
-            adata = adata.copy()[adata.obs.sort_values(paired_by).index, :]
         model = cls(adata, mask=mask, layer=layer)
+        if groups_to_compare is None:
+            # compare against all other
+            groups_to_compare = sorted(set(model.adata.obs[column]) - {baseline})
         if isinstance(groups_to_compare, str):
             groups_to_compare = [groups_to_compare]
 
-        res_dfs = []
-        for group_to_compare in groups_to_compare:
-            comparison_idx = np.where(adata.obs[column] == group_to_compare)[0]
-            if baseline is None:
-                baseline_idx = np.where(adata.obs[column] != group_to_compare)[0]
+        def _get_idx(column, value):
+            mask = model.adata.obs[column] == value
+            if paired:
+                dummies = pd.get_dummies(model.adata.obs[paired_by], sparse=True).sparse.to_coo().tocsr()
+                if not np.all(np.sum(dummies, axis=0) == 2):
+                    raise ValueError("Pairing is only possible with exactly two values per group")
+                # Use matrix multiplication to only retreive those dummy entries that are associated with the current `value`.
+                # Convert to COO matrix to get rows/cols
+                # row indices refers to the indices of rows that have `column == value` (equivalent to np.where(mask)[0])
+                # col indices refers to the numeric index of each "pair" in obs_names
+                ind_mat = (diags(mask.values, dtype=bool) @ dummies).tocoo()
+                return ind_mat.row[np.argsort(ind_mat.col)]
             else:
-                baseline_idx = np.where(adata.obs[column] == baseline)[0]
+                return np.where(mask)[0]
+
+        res_dfs = []
+        baseline_idx = _get_idx(column, baseline)
+        for group_to_compare in groups_to_compare:
+            comparison_idx = _get_idx(column, group_to_compare)
             res_dfs.append(
                 model._compare_single_group(baseline_idx, comparison_idx, paired=paired, **test_kwargs).assign(
                     comparison=f"{group_to_compare}_vs_{baseline if baseline is not None else 'rest'}"

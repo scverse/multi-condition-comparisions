@@ -77,9 +77,9 @@ class MethodBase(ABC):
         adata: AnnData,
         column: str,
         baseline: str,
-        groups_to_compare: str | Sequence[str],
+        groups_to_compare: str | Sequence[str] | None,
         *,
-        paired_by: str = None,
+        paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
         fit_kwargs: Mapping = MappingProxyType({}),
@@ -100,10 +100,10 @@ class MethodBase(ABC):
         column
             column in obs that contains the grouping information
         baseline
-            baseline value (one category from variable). If set to "None" this refers to "all other categories".
+            baseline value (one category from variable).
         groups_to_compare
             One or multiple categories from variable to compare against baseline. Setting this to None refers to
-            "all categories"
+            "all other categories"
         paired_by
             Column from `obs` that contains information about paired sample (e.g. subject_id)
         mask
