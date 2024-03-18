@@ -58,5 +58,5 @@ def test_adata_minimal(matrix_format):
     donor_data[(2 * n_donors) : (3 * n_donors)] = group2[:n_donors]
     donor_data[(3 * n_donors) :] = group1[n_donors:]
 
-    X = request.param(np.vstack([condition_data, donor_data]).T)
+    X = matrix_format(np.vstack([condition_data, donor_data]).T)
     return ad.AnnData(X=X, obs=obs, var=var)
