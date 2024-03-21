@@ -1,7 +1,8 @@
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 
 import numpy as np
 import pandas as pd
@@ -76,11 +77,13 @@ class MethodBase(ABC):
         adata: AnnData,
         column: str,
         baseline: str,
-        groups_to_compare: str | Sequence[str],
+        groups_to_compare: str | Sequence[str] | None,
         *,
-        paired_by: str = None,
+        paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
+        fit_kwargs: Mapping = MappingProxyType({}),
+        test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
         """
         Compare between groups in a specified column.
@@ -97,10 +100,10 @@ class MethodBase(ABC):
         column
             column in obs that contains the grouping information
         baseline
-            baseline value (one category from variable). If set to "None" this refers to "all other categories".
+            baseline value (one category from variable).
         groups_to_compare
             One or multiple categories from variable to compare against baseline. Setting this to None refers to
-            "all categories"
+            "all other categories"
         paired_by
             Column from `obs` that contains information about paired sample (e.g. subject_id)
         mask
@@ -163,13 +166,9 @@ class LinearModelBase(MethodBase):
         paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
-        fit_kwargs: dict = None,
-        test_kwargs: dict = None,
+        fit_kwargs: Mapping = MappingProxyType({}),
+        test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
-        if test_kwargs is None:
-            test_kwargs = {}
-        if fit_kwargs is None:
-            fit_kwargs = {}
         design = f"~{column}"
         if paired_by is not None:
             design += f"+{paired_by}"
