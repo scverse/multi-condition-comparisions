@@ -6,13 +6,32 @@ from pandas.core.api import DataFrame as DataFrame
 from multi_condition_comparisions.methods import SimpleComparisonBase, TTest, WilcoxonTest
 
 
-def test_wilcoxon(test_adata, paired_by):
-    if paired_by is not None:
-        test_adata.obs[paired_by] = list(range(sum(test_adata.obs["condition"] == "A"))) * 2
+@pytest.mark.parametrize(
+    "paired_by,expected",
+    [
+        pytest.param(
+            None,
+            {"gene1": {"p_value": 1.34e-14, "log_fc": -5.14}, "gene2": {"p_value": 0.54, "log_fc": -0.016}},
+            id="unpaired",
+        ),
+        pytest.param(
+            "pairing",
+            {"gene1": {"p_value": 3.70e-8, "log_fc": -5.14}, "gene2": {"p_value": 0.67, "log_fc": -0.016}},
+            id="paired",
+        ),
+    ],
+)
+def test_wilcoxon(test_adata_minimal, paired_by, expected):
+    """Test that wilcoxon test gives the correct values.
+
+    Reference valuese have been computed in R using wilcox.test
+    """
     res_df = WilcoxonTest.compare_groups(
-        adata=test_adata, column="condition", baseline="A", groups_to_compare="B", paired_by=paired_by
+        adata=test_adata_minimal, column="condition", baseline="A", groups_to_compare="B", paired_by=paired_by
     )
-    assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))  # TODO: which of these should actually be <.05?
+    actual = res_df.loc[:, ["variable", "p_value", "log_fc"]].set_index("variable").to_dict(orient="index")
+    for gene in expected:
+        assert actual[gene] == pytest.approx(expected[gene], abs=0.02)
 
 
 @pytest.mark.parametrize("paired_by", [None, "pairings"])

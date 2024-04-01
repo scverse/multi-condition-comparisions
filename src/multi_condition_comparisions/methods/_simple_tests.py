@@ -82,9 +82,9 @@ class SimpleComparisonBase(MethodBase):
             tmp_x1 = x1[:, self.adata.var_names == var]
             tmp_x1 = np.asarray(tmp_x1.todense()).flatten() if issparse(tmp_x1) else tmp_x1.flatten()
             pval = self._test(tmp_x0, tmp_x1, paired, **kwargs)
-            mean_x0 = np.mean(x0)
-            mean_x1 = np.mean(x1)
-            res.append({"variable": var, "p_value": pval, "log_fc": np.log(mean_x1) - np.log(mean_x0)})
+            mean_x0 = np.mean(tmp_x0)
+            mean_x1 = np.mean(tmp_x1)
+            res.append({"variable": var, "p_value": pval, "log_fc": np.log2(mean_x1) - np.log2(mean_x0)})
         return pd.DataFrame(res).sort_values("p_value")
 
     @classmethod
