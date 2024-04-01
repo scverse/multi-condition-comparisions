@@ -1,5 +1,6 @@
-import statsmodels.stats
 from typing import TYPE_CHECKING
+
+import statsmodels.stats
 
 if TYPE_CHECKING:
     import pandas as pd

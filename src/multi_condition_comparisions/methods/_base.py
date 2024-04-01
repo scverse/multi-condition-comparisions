@@ -261,7 +261,7 @@ class LinearModelBase(MethodBase):
     ) -> pd.DataFrame:
         """
         Conduct a specific test.
-        
+
         Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
         Parameters
@@ -313,6 +313,7 @@ class LinearModelBase(MethodBase):
         **kwargs
 
         """
+
         # TODO this is hacky - reach out to formulaic authors how to do this properly
         def _get_var_from_colname(colname):
             regex = re.compile(r"^.+\[T\.(.+)\]$")
@@ -351,6 +352,7 @@ class LinearModelBase(MethodBase):
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> list:
         """Build a simple contrast for pairwise comparisons.
-        
-        In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
+
+        In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO.
+        """
         return [column, baseline, group_to_compare]
