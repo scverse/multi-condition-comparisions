@@ -35,3 +35,7 @@ def test_pydeseq2_complex(test_adata):
     expected_columns = {"pvals", "pvals_adj", "logfoldchanges"}
     assert expected_columns.issubset(set(res_df.columns))
     assert np.all((0 <= res_df["pvals"]) & (res_df["pvals"] <= 1))
+
+
+# TODO: there should be a test checking if, for a concrete example, the output p-values and effect sizes are what
+# we expect (-> frozen snapshot, that way we also get a heads-up if something changes upstream)

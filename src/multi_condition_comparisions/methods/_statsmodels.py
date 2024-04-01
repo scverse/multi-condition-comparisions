@@ -57,14 +57,14 @@ class Statsmodels(LinearModelBase):
             res.append(
                 {
                     "variable": var,
-                    "pvalue": t_test.pvalue,
-                    "tvalue": t_test.tvalue.item(),
+                    "p_value": t_test.pvalue,
+                    "t_value": t_test.tvalue.item(),
                     "sd": t_test.sd.item(),
-                    "logfoldchanges": t_test.effect.item(),
-                    "padj": statsmodels.stats.multitest.fdrcorrection(np.array([t_test.pvalue]))[1].item(),
+                    "log_fc": t_test.effect.item(),
+                    "adj_p_value": statsmodels.stats.multitest.fdrcorrection(np.array([t_test.pvalue]))[1].item(),
                 }
             )
-        return pd.DataFrame(res).sort_values("pvalue").set_index("variable")
+        return pd.DataFrame(res).sort_values("p_value")
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> np.ndarray:
         """

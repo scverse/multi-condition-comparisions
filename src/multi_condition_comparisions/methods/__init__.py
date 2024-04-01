@@ -12,5 +12,8 @@ __all__ = [
     "Statsmodels",
     "SimpleComparisonBase",
     "WilcoxonTest",
-    "TTest" "ContrastType",
+    "TTest",
+    "ContrastType",
 ]
+
+AVAILABLE_METHODS = [Statsmodels, EdgeR, PyDESeq2, WilcoxonTest, TTest]

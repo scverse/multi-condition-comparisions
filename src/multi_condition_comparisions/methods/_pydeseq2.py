@@ -62,6 +62,13 @@ class PyDESeq2(LinearModelBase):
         kwargs: extra arguments to pass to DeseqStats()
         """
         stat_res = DeseqStats(self.dds, contrast=contrast, alpha=alpha, **kwargs)
+        # Calling `.summary()` is required to fill the `results_df` data frame
         stat_res.summary()
-        stat_res.p_values
-        return pd.DataFrame(stat_res.results_df).sort_values("padj")
+        res_df = (
+            pd.DataFrame(stat_res.results_df)
+            .rename(columns={"pvalue": "p_value", "padj": "adj_p_value", "log2FoldChange": "log_fc"})
+            .sort_values("p_value")
+        )
+        res_df.index.name = "variable"
+        res_df = res_df.reset_index()
+        return res_df

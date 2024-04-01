@@ -169,6 +169,7 @@ class LinearModelBase(MethodBase):
         fit_kwargs: Mapping = MappingProxyType({}),
         test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
+        """TODO: docstring"""
         design = f"~{column}"
         if paired_by is not None:
             design += f"+{paired_by}"
@@ -252,9 +253,6 @@ class LinearModelBase(MethodBase):
             results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
 
         results_df = pd.concat(results)
-        results_df.rename(
-            columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"}, inplace=True
-        )
 
         return results_df
 

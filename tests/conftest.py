@@ -29,8 +29,9 @@ def test_adata(test_counts, test_metadata):
     return ad.AnnData(X=test_counts, obs=test_metadata)
 
 
-@pytest.mark.parametrize("matrix_format", [np.array, sp.csr_matrix, sp.csc_matrix])
-def test_adata_minimal(matrix_format):
+@pytest.fixture(params=[np.array, sp.csr_matrix, sp.csc_matrix])
+def test_adata_minimal(request):
+    matrix_format = request.param
     n_obs = 80
     n_donors = n_obs // 4
     rng = np.random.default_rng(9)  # make tests deterministic

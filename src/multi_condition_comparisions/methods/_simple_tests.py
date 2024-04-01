@@ -13,6 +13,8 @@ from pandas.core.api import DataFrame as DataFrame
 from scipy.sparse import diags, issparse
 from tqdm.auto import tqdm
 
+from multi_condition_comparisions.tl import fdr_correction
+
 from ._base import MethodBase
 
 
@@ -82,8 +84,8 @@ class SimpleComparisonBase(MethodBase):
             pval = self._test(tmp_x0, tmp_x1, paired, **kwargs)
             mean_x0 = np.mean(x0)
             mean_x1 = np.mean(x1)
-            res.append({"variable": var, "pvals": pval, "fold_change": np.log(mean_x1) - np.log(mean_x0)})
-        return pd.DataFrame(res).sort_values("pvals").set_index("variable")
+            res.append({"variable": var, "p_value": pval, "log_fc": np.log(mean_x1) - np.log(mean_x0)})
+        return pd.DataFrame(res).sort_values("p_value")
 
     @classmethod
     def compare_groups(
@@ -133,7 +135,7 @@ class SimpleComparisonBase(MethodBase):
                     comparison=f"{group_to_compare}_vs_{baseline if baseline is not None else 'rest'}"
                 )
             )
-        return pd.concat(res_dfs)
+        return fdr_correction(pd.concat(res_dfs))
 
 
 class WilcoxonTest(SimpleComparisonBase):
