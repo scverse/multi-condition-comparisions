@@ -3,9 +3,12 @@ import re
 import warnings
 
 import pandas as pd
+from anndata import AnnData
+from numpy import ndarray
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
+from scipy.sparse import issparse
 
 from multi_condition_comparisions._util import check_is_integer_matrix
 
@@ -14,6 +17,18 @@ from ._base import LinearModelBase
 
 class PyDESeq2(LinearModelBase):
     """Differential expression test using a PyDESeq2"""
+
+    def __init__(
+        self, adata: AnnData, design: str | ndarray, *, mask: str | None = None, layer: str | None = None, **kwargs
+    ):
+        super().__init__(adata, design, mask=mask, layer=layer, **kwargs)
+        # work around pydeseq2 issue with sparse matrices
+        # see also https://github.com/owkin/PyDESeq2/issues/25
+        if issparse(self.data):
+            if self.layer is None:
+                self.adata.X = self.adata.X.toarray()
+            else:
+                self.adata.layers[self.layer] = self.adata.layers[self.layer].toarray()
 
     def _check_counts(self):
         check_is_integer_matrix(self.data)
