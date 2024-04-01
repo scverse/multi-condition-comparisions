@@ -44,7 +44,7 @@ def test_simple_comparison_pairing(test_adata_minimal, seed):
             assert np.all(x0.obs["condition"] == "A")
             assert np.all(x1.obs["condition"] == "B")
             assert np.all(x0.obs["pairing"].values == x1.obs["pairing"].values)
-            return pd.DataFrame()
+            return pd.DataFrame([{"p_value": 1}])
 
     rng = np.random.default_rng(seed)
     shuffle_adata_idx = rng.permutation(test_adata_minimal.obs_names)
@@ -53,3 +53,26 @@ def test_simple_comparison_pairing(test_adata_minimal, seed):
     MockSimpleComparison.compare_groups(
         tmp_adata, column="condition", baseline="A", groups_to_compare=["B"], paired_by="pairing"
     )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            {"column": "donor", "baseline": "D0", "paired_by": "pairing", "groups_to_compare": "D1"},
+            id="pairing not subgroup of donor",
+        ),
+        pytest.param(
+            {"column": "donor", "baseline": "D0", "paired_by": "condition", "groups_to_compare": "D1"},
+            id="more than two per group (donor)",
+        ),
+        pytest.param(
+            {"column": "condition", "baseline": "A", "paired_by": "donor", "groups_to_compare": "B"},
+            id="more than two per group (condition)",
+        ),
+    ],
+)
+def test_invalid_pairing(test_adata_minimal, params):
+    """Test that the SimpleComparisonBase class raises an error when paired analysis is requested with invalid configuration."""
+    with pytest.raises(ValueError):
+        TTest.compare_groups(test_adata_minimal, **params)
