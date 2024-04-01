@@ -33,7 +33,7 @@ class MethodBase(ABC):
         **kwargs,
     ):
         """
-        Initialize the method
+        Initialize the method.
 
         Parameters
         ----------
@@ -54,17 +54,15 @@ class MethodBase(ABC):
 
         self.layer = layer
 
-        # Do some sanity checks on the input. Do them after the mask is applied.
-        # Check that counts have no NaN or Inf values.
+        # Sanity checks after the mask has been applied.
         if np.any(~np.isfinite(self.data)):
             raise ValueError("Counts cannot contain negative, NaN or Inf values.")
-        # Check that counts have numeric values.
         if not np.issubdtype(self.adata.X.dtype, np.number):
             raise ValueError("Counts must be numeric.")
 
     @property
     def data(self):
-        """Get the data matrix from anndata this object was initalized with (X or layer)"""
+        """Get the data matrix from anndata this object was initalized with (X or layer)."""
         if self.layer is None:
             return self.adata.X
         else:
@@ -169,7 +167,36 @@ class LinearModelBase(MethodBase):
         fit_kwargs: Mapping = MappingProxyType({}),
         test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
-        """TODO: docstring"""
+        """
+        Compare between groups in a specified column.
+
+        This is a high-level interface that is kept simple on purpose and
+        only supports comparisons between groups on a single column at a time.
+        For more complex designs, please use the LinearModel method classes directly.
+
+        Parameters
+        ----------
+        adata
+            AnnData object
+        column
+            column in obs that contains the grouping information
+        baseline
+            baseline value (one category from variable).
+        groups_to_compare
+            One or multiple categories from variable to compare against baseline. Setting this to None refers to
+            "all other categories"
+        paired_by
+            Column from `obs` that contains information about paired sample (e.g. subject_id)
+        mask
+            Subset anndata by a boolean mask stored in this column in `.obs` before making any tests
+        layer
+            Use this layer instead of `.X`.
+
+        Returns
+        -------
+        Pandas dataframe with results ordered by significance. If multiple comparisons were performed this
+        is indicated in an additional column.
+        """
         design = f"~{column}"
         if paired_by is not None:
             design += f"+{paired_by}"
@@ -177,10 +204,8 @@ class LinearModelBase(MethodBase):
             groups_to_compare = [groups_to_compare]
         model = cls(adata, design=design, mask=mask, layer=layer)
 
-        ## Fit model
         model.fit(**fit_kwargs)
 
-        ## Test contrasts
         de_res = model.test_contrasts(
             {
                 group_to_compare: model.contrast(column=column, baseline=baseline, group_to_compare=group_to_compare)
@@ -235,15 +260,15 @@ class LinearModelBase(MethodBase):
         self, contrasts: list[str] | dict[str, np.ndarray] | dict[str, list] | np.ndarray, **kwargs
     ) -> pd.DataFrame:
         """
-        Conduct a specific test.  Please use :method:`contrast` to build the contrasts instead of building it on your own.
+        Conduct a specific test.
+        
+        Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
         Parameters
         ----------
         contrasts:
             either a single contrast, or a dictionary of contrasts where the key is the name for that particular contrast.
-            Each contrast can be either a vector of coefficients (the most general case), a string, or a some fancy DSL
-            (details still need to be figured out).
-
+            Each contrast can be either a vector of coefficients (the most general case), a string, a DSL (work in progress)
             or a tuple with three elements contrasts = ("condition", "control", "treatment")
         """
         if not isinstance(contrasts, dict):
@@ -288,7 +313,6 @@ class LinearModelBase(MethodBase):
         **kwargs
 
         """
-
         # TODO this is hacky - reach out to formulaic authors how to do this properly
         def _get_var_from_colname(colname):
             regex = re.compile(r"^.+\[T\.(.+)\]$")
@@ -326,5 +350,7 @@ class LinearModelBase(MethodBase):
         return self.design.model_spec.get_model_matrix(df)
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> list:
-        """Build a simple contrast for pairwise comparisons.  In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
+        """Build a simple contrast for pairwise comparisons.
+        
+        In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
         return [column, baseline, group_to_compare]

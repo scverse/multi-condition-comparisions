@@ -50,7 +50,7 @@ class PyDESeq2(LinearModelBase):
 
     def _test_single_contrast(self, contrast: list[str], alpha=0.05, **kwargs) -> pd.DataFrame:
         """
-        Conduct a specific test and returns a data frame
+        Conduct a specific test and returns a Pandas DataFrame.
 
         Parameters
         ----------

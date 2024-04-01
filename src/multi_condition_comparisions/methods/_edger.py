@@ -44,13 +44,14 @@ class EdgeR(LinearModelBase):
             rpy2.robjects.numpy2ri.activate()
 
         except ImportError:
-            raise ImportError("edger requires rpy2 to be installed. ") from None
+            raise ImportError("edger requires rpy2 to be installed.") from None
 
         try:
             edger = importr("edgeR")
         except ImportError:
             raise ImportError(
-                "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
+                "edgeR requires a valid R installation with the following packages:\n"
+                "edgeR, BiocParallel, RhpcBLASctl"
             ) from None
 
         # Convert dataframe
