@@ -6,7 +6,6 @@ from pandas.core.api import DataFrame as DataFrame
 from multi_condition_comparisions.methods import SimpleComparisonBase, TTest, WilcoxonTest
 
 
-@pytest.mark.parametrize("paired_by", [None, "pairings"])
 def test_wilcoxon(test_adata, paired_by):
     if paired_by is not None:
         test_adata.obs[paired_by] = list(range(sum(test_adata.obs["condition"] == "A"))) * 2
