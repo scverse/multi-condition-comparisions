@@ -137,5 +137,7 @@ class EdgeR(LinearModelBase):
 
         # Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
+        de_res.index.name = "variable"
+        de_res = de_res.reset_index()
 
         return de_res.rename(columns={"PValue": "p_value", "logFC": "log_fc", "FDR": "adj_p_value"})
