@@ -121,7 +121,10 @@ class SimpleComparisonBase(MethodBase):
                 # Convert to COO matrix to get rows/cols
                 # row indices refers to the indices of rows that have `column == value` (equivalent to np.where(mask)[0])
                 # col indices refers to the numeric index of each "pair" in obs_names
-                ind_mat = (diags(mask.values, dtype=bool) @ dummies).tocoo()
+                ind_mat = diags(mask.values, dtype=bool) @ dummies
+                if not np.all(np.sum(ind_mat, axis=0) == 1):
+                    raise ValueError("Pairing is only possible with exactly two values per group")
+                ind_mat = ind_mat.tocoo()
                 return ind_mat.row[np.argsort(ind_mat.col)]
             else:
                 return np.where(mask)[0]

@@ -6,7 +6,7 @@ from multi_condition_comparisions.methods import AVAILABLE_METHODS
 
 @pytest.mark.parametrize("method", AVAILABLE_METHODS)
 @pytest.mark.parametrize("paired_by", ["pairing", None])
-def test_unified(test_adata_minimal, method, paired_by):
+def test_unified_api_single_group(test_adata_minimal, method, paired_by):
     """
     Test that all methods implement the unified API.
 
@@ -17,7 +17,6 @@ def test_unified(test_adata_minimal, method, paired_by):
     TODO: tests for layers
     TODO: tests for mask
     """
-    # case 1: Single group to compare
     res_df = method.compare_groups(
         adata=test_adata_minimal, column="condition", baseline="A", groups_to_compare="B", paired_by=paired_by
     )
@@ -29,13 +28,25 @@ def test_unified(test_adata_minimal, method, paired_by):
     assert np.all((0 <= res_df["adj_p_value"]) & (res_df["adj_p_value"] <= 1))
     assert np.all(res_df["adj_p_value"] >= res_df["p_value"])
 
-    # case 2: multiple groups to compare
+
+@pytest.mark.parametrize("method", AVAILABLE_METHODS)
+def test_unified_api_multiple_groups(test_adata_minimal, method):
+    """
+    Test that all methods implement the unified API.
+
+    Here, we don't check the correctness of the results
+    (we have the method-specific tests for that), but rather that the interface works
+    as expected and the format of the resulting data frame is what we expect.
+
+    TODO: tests for layers
+    TODO: tests for mask
+    """
     res_df = method.compare_groups(
         adata=test_adata_minimal,
         column="donor",
         baseline="D0",
         groups_to_compare=["D1", "D2", "D3"],
-        paired_by=paired_by,
+        paired_by=None,  # No pairing possible here.
     )
     assert (
         res_df.shape[0] == 3 * test_adata_minimal.shape[1]
