@@ -10,6 +10,8 @@ from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
 
+from multi_condition_comparisions._util import check_is_numeric_matrix
+
 
 @dataclass
 class Contrast:
@@ -54,11 +56,8 @@ class MethodBase(ABC):
 
         self.layer = layer
 
-        # Sanity checks after the mask has been applied.
-        if np.any(~np.isfinite(self.data)):
-            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
-        if not np.issubdtype(self.adata.X.dtype, np.number):
-            raise ValueError("Counts must be numeric.")
+        # Check after mask has been applied.
+        check_is_numeric_matrix(self.data)
 
     @property
     def data(self):

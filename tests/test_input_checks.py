@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
-from multi_condition_comparisions._util import check_is_integer_matrix
+from multi_condition_comparisions._util import check_is_integer_matrix, check_is_numeric_matrix
 from multi_condition_comparisions.methods import Statsmodels
 
 
@@ -38,8 +38,8 @@ def test_invalid_inputs(matrix_type, invalid_input, test_counts, test_metadata):
         pytest.param([[1, np.nan], [3, 4]], ValueError, id="nans"),
     ],
 )
-def test_valid_count_matrix(matrix_type, input, expected: type):
-    """Test with a valid count matrix."""
+def test_check_is_integer_matrix(matrix_type, input, expected: type):
+    """Test for valid integer matrix."""
     matrix = matrix_type(input, dtype=float)
 
     if expected is None:
@@ -47,3 +47,28 @@ def test_valid_count_matrix(matrix_type, input, expected: type):
     else:
         with pytest.raises(expected):
             check_is_integer_matrix(matrix)
+
+
+@pytest.mark.parametrize("matrix_type", [np.array, sp.csr_matrix, sp.csc_matrix])
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        pytest.param([[1, 2], [3, 4]], None, id="valid"),
+        pytest.param([[1, -2], [3, 4]], None, id="negative values"),
+        pytest.param([[1, 2.5], [3, 4]], None, id="non-integer"),
+        pytest.param([[1, np.nan], [3, 4]], ValueError, id="nans"),
+    ],
+)
+def test_check_is_numeric_matrix(matrix_type, input, expected: type):
+    """Test for valid numeric matrix.
+
+    This is like the integer matrix check above, except that also negative
+    and float values are allowed.
+    """
+    matrix = matrix_type(input, dtype=float)
+
+    if expected is None:
+        check_is_numeric_matrix(matrix)
+    else:
+        with pytest.raises(expected):
+            check_is_numeric_matrix(matrix)

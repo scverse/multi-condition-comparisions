@@ -2,6 +2,29 @@ import numpy as np
 from scipy.sparse import issparse, spmatrix
 
 
+def check_is_numeric_matrix(array: np.ndarray | spmatrix) -> None:
+    """Check if a matrix is numeric and only contains finite/non-NA values
+
+    Parameters
+    ----------
+    array
+        dense or sparse matrix to check
+
+    Raises
+    ------
+    ValueError
+        if the matrix is not numeric or contains NaNs or infinite values
+    """
+    if not np.issubdtype(array.dtype, np.number):
+        raise ValueError("Counts must be numeric.")
+    if issparse(array):
+        if np.any(~np.isfinite(array.data)):
+            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
+    else:
+        if np.any(~np.isfinite(array)):
+            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
+
+
 def check_is_integer_matrix(array: np.ndarray | spmatrix, tolerance: float = 1e-6) -> None:
     """Check if a matrix container integers, or floats that are close to integers.
 

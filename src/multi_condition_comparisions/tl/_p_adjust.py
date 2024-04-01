@@ -1,12 +1,10 @@
-from typing import TYPE_CHECKING
-
+import pandas as pd
 import statsmodels.stats
 
-if TYPE_CHECKING:
-    import pandas as pd
 
-
-def fdr_correction(df: pd.DataFrame, pvalue_col="p_value", *, key_added="adj_p_value", inplace=False):
+def fdr_correction(
+    df: pd.DataFrame, pvalue_col: str = "p_value", *, key_added: str = "adj_p_value", inplace: bool = False
+):
     """Adjust p-values in a DataFrame with test results using FDR correction."""
     if not inplace:
         df = df.copy()
