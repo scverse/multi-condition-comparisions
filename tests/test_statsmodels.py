@@ -30,8 +30,3 @@ def test_statsmodels(test_adata, method_class, kwargs):
 
 # TODO: there should be a test checking if, for a concrete example, the output p-values and effect sizes are what
 # we expect (-> frozen snapshot, that way we also get a heads-up if something changes upstream)
-
-
-def test_foo(test_adata_minimal):
-    model = Statsmodels(test_adata_minimal, "~ condition * donor")
-    print(model)
