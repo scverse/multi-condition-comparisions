@@ -27,7 +27,7 @@ class FactorMetadata:
     categories: Sequence[str]
     """The unique categories in this factor (after applying `drop_rows`)"""
 
-    kind: Factor.Kind = None
+    kind: Factor.Kind
     """Type of the factor"""
 
     drop_field: str = None
@@ -75,6 +75,13 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
     Keep track of categorical factors used in a model spec.
 
     Generates a custom materializers that reports back certain metadata upon materialization of the model matrix.
+
+    Returns
+    -------
+    factor_storage
+        A dictionary pointing to Metadata for each factor processed by the custom materializer
+    CustomPandasMaterializer
+        A materializer class that is tied to the particular instance of `factor_storage`.
     """
     factor_storage: dict[str, FactorMetadata] = {}
 
@@ -91,6 +98,11 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
         def _encode_evaled_factor(
             self, factor: EvaluatedFactor, spec: ModelSpec, drop_rows: Sequence[int], reduced_rank: bool = False
         ) -> dict[str, Any]:
+            """
+            Function is called just before the factor is evaluated.
+
+            We can record some metadata, before we call the original function.
+            """
             if factor.expr in self.factor_metadata_storage and not (
                 factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache
             ):
@@ -104,15 +116,20 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
                 reduced_rank=reduced_rank,
                 categories=tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique())),
                 custom_encoder=factor.metadata.encoder is not None,
+                kind=factor.metadata.kind,
             )
             return super()._encode_evaled_factor(factor, spec, drop_rows, reduced_rank)
 
         @override
         def _flatten_encoded_evaled_factor(self, name: str, values: FactorValues[dict]) -> dict[str, Any]:
-            """Function is called at the end, here we still have access to the raw factor values."""
+            """
+            Function is called at the end, before the design matrix gets materialized.
+
+            Here we have access to additional metadata, such as `drop_field`.
+            """
             factor_metadata = self.factor_metadata_storage[name]
             factor_metadata.drop_field = values.__formulaic_metadata__.drop_field
-            factor_metadata.categories = values.__formulaic_metadata__.column_names
+            factor_metadata.column_names = values.__formulaic_metadata__.column_names
             factor_metadata.colname_format = values.__formulaic_metadata__.format
 
             return super()._flatten_encoded_evaled_factor(name, values)
