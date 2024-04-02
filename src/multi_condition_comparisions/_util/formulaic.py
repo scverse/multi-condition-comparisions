@@ -21,7 +21,14 @@ class FactorMetadata:
     reduced_rank: bool
     """Whether a column will be dropped because it is redundant"""
 
-    custom_encoder: str = None
+    custom_encoder: bool
+    """Whether or not a custom encoder (e.g. `C(...)`) was used."""
+
+    categories: Sequence[str]
+    """The unique categories in this factor (after applying `drop_rows`)"""
+
+    kind: Factor.Kind = None
+    """Type of the factor"""
 
     drop_field: str = None
     """
@@ -32,21 +39,25 @@ class FactorMetadata:
       * this is only populated when no encoder was used (e.g. `~ donor` but NOT `~ C(donor)`.
     """
 
-    kind: Factor.Kind = None
-    """Type of the factor"""
-
-    categories: Sequence[str] = None
-    """The unique categories in this factor"""
-
     column_names: Sequence[str] = None
-    """The column names for this factor included in the design matrix"""
+    """
+    The column names for this factor included in the design matrix.
+
+    This may be the same as `categories` if the default encoder is used, or
+    categories without the base level if a custom encoder (e.g. `C(...)`) is used.
+    """
 
     colname_format: str = None
     """A formattable string that can be used to generate the column name in the design matrix, e.g. `{name}[T.{field}]`"""
 
     @property
     def base(self) -> str | None:
-        """The base category for this categorical factor"""
+        """
+        The base category for this categorical factor.
+
+        This is derived from `drop_field` (for default encoding) or by comparing the column names in
+        the design matrix with all categories (for custom encoding, e.g. `C(...)`).
+        """
         if not self.reduced_rank:
             return None
         else:
@@ -88,8 +99,12 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
                 # However, if it's not just reusing an existing encoding, something unexpected is happening that
                 # we haven't accounted for yet.
                 raise AssertionError("Factor already present in metadata storage and not reusing cached encoding")
-            self.factor_metadata_storage[factor.expr] = FactorMetadata(name=factor.expr, reduced_rank=reduced_rank)
-            tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique()))
+            self.factor_metadata_storage[factor.expr] = FactorMetadata(
+                name=factor.expr,
+                reduced_rank=reduced_rank,
+                categories=tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique())),
+                custom_encoder=factor.metadata.encoder is not None,
+            )
             return super()._encode_evaled_factor(factor, spec, drop_rows, reduced_rank)
 
         @override
