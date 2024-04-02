@@ -7,7 +7,6 @@ from typing import Any
 from formulaic import FactorValues, ModelSpec
 from formulaic.materializers import PandasMaterializer
 from formulaic.materializers.types import EvaluatedFactor
-from formulaic.parser.types import Factor
 from interface_meta import override
 
 

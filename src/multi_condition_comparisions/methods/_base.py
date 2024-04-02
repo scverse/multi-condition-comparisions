@@ -1,4 +1,3 @@
-import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -7,10 +6,9 @@ from types import MappingProxyType
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from formulaic import model_matrix
-from formulaic.model_matrix import ModelMatrix
 
 from multi_condition_comparisions._util import check_is_numeric_matrix
+from multi_condition_comparisions._util.formulaic import Factor, get_factor_storage_and_materializer
 
 
 @dataclass
@@ -119,6 +117,11 @@ class MethodBase(ABC):
 class LinearModelBase(MethodBase):
     """Base class for DE methods that have a linear model interface (i.e. support design matrices and contrast testing)"""
 
+    materializer = None
+    factor_storage = None
+    """Object to store metadata of formulaic factors which is used for building contrasts later. If a design matrix
+    is passed directly, this remains None."""
+
     def __init__(
         self,
         adata: AnnData,
@@ -148,7 +151,8 @@ class LinearModelBase(MethodBase):
         self._check_counts()
 
         if isinstance(design, str):
-            self.design = model_matrix(design, adata.obs)
+            self.factor_storage, self.materializer = get_factor_storage_and_materializer()
+            self.design = self.materializer(adata.obs).get_model_matrix(design)
         else:
             self.design = design
 
@@ -216,7 +220,7 @@ class LinearModelBase(MethodBase):
         return de_res
 
     @property
-    def variables(self):
+    def variables(self) -> set:
         """Get the names of the variables used in the model definition"""
         try:
             return self.design.model_spec.variables_by_source["data"]
@@ -303,53 +307,74 @@ class LinearModelBase(MethodBase):
 
     def cond(self, **kwargs) -> np.ndarray:
         """
-        The intention is to make contrasts using this function as in glmGamPoi
+        Get a contrast vector representing a specific condition.
 
-        >>> res < -test_de(
-        ...     fit, contrast=cond(cell="B cells", condition="stim") - cond(cell="B cells", condition="ctrl")
-        ... )
+        The resulting contrast vector can be combined using arithmetic operations to generate a contrast
+        vector for a specific comparison, e.g. for a simple comparison treated vs. control
+
+        >>> contrast = model.cond(condition="treated") - model.cond(condition="ctrl")
+
+        When using an interaction term `cell * condition`, a comparison within a specific cell-type can be
+        easily built as follows:
+
+        >>> contrast = model.cond(cell="B cells", condition="ctrl") - cond(cell="B cells", condition="treated")
+
+        This way of building contrast vectors is inspired by [glmGamPoi](https://bioconductor.org/packages/release/bioc/html/glmGamPoi.html).
 
         Parameters
         ----------
         **kwargs
+            column/value pairs
 
+        Returns
+        -------
+        A contrast vector that aligns to the columns of the design matrix.
         """
-
-        # TODO this is hacky - reach out to formulaic authors how to do this properly
-        def _get_var_from_colname(colname):
-            regex = re.compile(r"^.+\[T\.(.+)\]$")
-            return regex.search(colname).groups()[0]
-
-        if not isinstance(self.design, ModelMatrix):
+        if self.factor_storage is None:
             raise RuntimeError(
                 "Building contrasts with `cond` only works if you specified the model using a "
                 "formulaic formula. Please manually provide a contrast vector."
             )
+
         cond_dict = kwargs
-        for var in self.variables:
-            var_type = self.design.model_spec.encoder_state[var][0].value
-            if var_type == "categorical":
-                all_categories = set(self.design.model_spec.encoder_state[var][1]["categories"])
-            if var in kwargs:
-                if var_type == "categorical" and kwargs[var] not in all_categories:
+
+        if not set(cond_dict.keys()).issubset(self.variables):
+            raise ValueError(
+                "You specified a variable that is not part of the model. Available variables: "
+                + ",".join(self.variables)
+            )
+
+        # We now fill `cond_dict` such that it is equivalent to a data row from `adata.obs`.
+        # This data can then be passed to the `get_model_matrix` of formulaic to retreive a correpsonding
+        # contrast vector.
+        # To do so, we keep the values that were already specified, and fill all other values with the default category
+        # (the one that is usually dropped from the model for being redundant).
+        #
+        # `model_spec.variable_terms` is a mapping from variable to a set of terms. Unless a variable is used twice in the
+        # same formula (which for don't support for now), it contains exactly one element.
+        for var, term in self.design.model_spec.variable_terms.items():
+            if len(term) != 1:
+                raise RuntimeError(
+                    "Ambiguous variable! Building contrasts with model.cond only works "
+                    "when each variable occurs only once per formula"
+                )
+            term = term.pop()
+            term_metadata = self.factor_storage[term]
+            if var in cond_dict:
+                # In this case we keep the specified value in the dict, but we verify that it's a valid category
+                if term_metadata.kind == Factor.Kind.CATEGORICAL and cond_dict[var] not in term_metadata.categories:
                     raise ValueError(
-                        f"You specified a non-existant category for {var}. Possible categories: {', '.join(all_categories)}"
+                        f"You specified a non-existant category for {var}. Possible categories: {', '.join(term_metadata.categories)}"
                     )
             else:
                 # fill with default values
-                if var_type != "categorical":
-                    cond_dict[var] = 0
+                if term_metadata.kind == Factor.Kind.CATEGORICAL:
+                    cond_dict[var] = term_metadata.base
                 else:
-                    var_cols = self.design.columns[self.design.columns.str.startswith(f"{var}[")]
-
-                    present_categories = {_get_var_from_colname(x) for x in var_cols}
-                    dropped_category = all_categories - present_categories
-                    assert len(dropped_category) == 1
-                    cond_dict[var] = next(iter(dropped_category))
+                    cond_dict[var] = 0
 
         df = pd.DataFrame([kwargs])
-
-        return self.design.model_spec.get_model_matrix(df)
+        return self.design.model_spec.get_model_matrix(df).iloc[0]
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> pd.Series:
         """
@@ -357,9 +382,7 @@ class LinearModelBase(MethodBase):
 
         This is an alias for
 
-        ```
-        model.cond(column=group_to_compare) - model.cond(column=baseline)
-        ```
+        >>> model.cond(column=group_to_compare) - model.cond(column=baseline)
 
         Parameters
         ----------
