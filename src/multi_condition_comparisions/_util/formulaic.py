@@ -21,8 +21,16 @@ class FactorMetadata:
     reduced_rank: bool
     """Whether a column will be dropped because it is redundant"""
 
+    custom_encoder: str = None
+
     drop_field: str = None
-    """The category that is dropped. Note that this may also be populated if `reduced_rank = False`"""
+    """
+    The category that is dropped.
+
+    Note that
+      * this may also be populated if `reduced_rank = False`
+      * this is only populated when no encoder was used (e.g. `~ donor` but NOT `~ C(donor)`.
+    """
 
     kind: Factor.Kind = None
     """Type of the factor"""
@@ -30,8 +38,25 @@ class FactorMetadata:
     categories: Sequence[str] = None
     """The unique categories in this factor"""
 
+    column_names: Sequence[str] = None
+    """The column names for this factor included in the design matrix"""
+
     colname_format: str = None
     """A formattable string that can be used to generate the column name in the design matrix, e.g. `{name}[T.{field}]`"""
+
+    @property
+    def base(self) -> str | None:
+        """The base category for this categorical factor"""
+        if not self.reduced_rank:
+            return None
+        else:
+            if self.custom_encoder:
+                tmp_base = set(self.categories) - set(self.column_names)
+                assert len(tmp_base) == 1
+                return tmp_base.pop()
+            else:
+                assert self.drop_field is not None
+                return self.drop_field
 
 
 def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], type]:
@@ -64,6 +89,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
                 # we haven't accounted for yet.
                 raise AssertionError("Factor already present in metadata storage and not reusing cached encoding")
             self.factor_metadata_storage[factor.expr] = FactorMetadata(name=factor.expr, reduced_rank=reduced_rank)
+            tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique()))
             return super()._encode_evaled_factor(factor, spec, drop_rows, reduced_rank)
 
         @override
