@@ -3,9 +3,12 @@ import re
 import warnings
 
 import pandas as pd
+from anndata import AnnData
+from numpy import ndarray
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
+from scipy.sparse import issparse
 
 from multi_condition_comparisions._util import check_is_integer_matrix
 
@@ -14,6 +17,18 @@ from ._base import LinearModelBase
 
 class PyDESeq2(LinearModelBase):
     """Differential expression test using a PyDESeq2"""
+
+    def __init__(
+        self, adata: AnnData, design: str | ndarray, *, mask: str | None = None, layer: str | None = None, **kwargs
+    ):
+        super().__init__(adata, design, mask=mask, layer=layer, **kwargs)
+        # work around pydeseq2 issue with sparse matrices
+        # see also https://github.com/owkin/PyDESeq2/issues/25
+        if issparse(self.data):
+            if self.layer is None:
+                self.adata.X = self.adata.X.toarray()
+            else:
+                self.adata.layers[self.layer] = self.adata.layers[self.layer].toarray()
 
     def _check_counts(self):
         check_is_integer_matrix(self.data)
@@ -50,7 +65,7 @@ class PyDESeq2(LinearModelBase):
 
     def _test_single_contrast(self, contrast: list[str], alpha=0.05, **kwargs) -> pd.DataFrame:
         """
-        Conduct a specific test and returns a data frame
+        Conduct a specific test and returns a Pandas DataFrame.
 
         Parameters
         ----------
@@ -62,6 +77,13 @@ class PyDESeq2(LinearModelBase):
         kwargs: extra arguments to pass to DeseqStats()
         """
         stat_res = DeseqStats(self.dds, contrast=contrast, alpha=alpha, **kwargs)
+        # Calling `.summary()` is required to fill the `results_df` data frame
         stat_res.summary()
-        stat_res.p_values
-        return pd.DataFrame(stat_res.results_df).sort_values("padj")
+        res_df = (
+            pd.DataFrame(stat_res.results_df)
+            .rename(columns={"pvalue": "p_value", "padj": "adj_p_value", "log2FoldChange": "log_fc"})
+            .sort_values("p_value")
+        )
+        res_df.index.name = "variable"
+        res_df = res_df.reset_index()
+        return res_df
