@@ -252,22 +252,25 @@ class LinearModelBase(MethodBase):
         ...
 
     @abstractmethod
-    def _test_single_contrast(self, contrast, **kwargs) -> pd.DataFrame: ...
+    def _test_single_contrast(self, contrast: Sequence[float], **kwargs) -> pd.DataFrame: ...
 
-    def test_contrasts(
-        self, contrasts: list[str] | dict[str, np.ndarray] | dict[str, list] | np.ndarray, **kwargs
-    ) -> pd.DataFrame:
+    def test_contrasts(self, contrasts: Sequence[float] | dict[str, Sequence[float]], **kwargs) -> pd.DataFrame:
         """
-        Conduct a specific test.
+        Perform a comparison as specified in a contrast vector.
 
-        Please use :method:`contrast` to build the contrasts instead of building it on your own.
+        The contrast vector is a numeric vector with one element for each column in the design matrix.
+        We recommend building the contrast vector using {func}`~LinearModelBase.contrast` or
+        {func}`~LinearModelBase.cond`.
+
+        Multiple comparisons can be specified as a dictionary of contrast vectors.
 
         Parameters
         ----------
         contrasts:
-            either a single contrast, or a dictionary of contrasts where the key is the name for that particular contrast.
-            Each contrast can be either a vector of coefficients (the most general case), a string, a DSL (work in progress)
-            or a tuple with three elements contrasts = ("condition", "control", "treatment")
+            Either a numeric contrast vector, or a dictionary of numeric contrast vectors. The dictionary keys
+            are added in a column named `contrast` in the result dataframe.
+        kwargs
+            are passed to the respective implementation
         """
         if not isinstance(contrasts, dict):
             contrasts = {None: contrasts}
@@ -348,9 +351,27 @@ class LinearModelBase(MethodBase):
 
         return self.design.model_spec.get_model_matrix(df)
 
-    def contrast(self, column: str, baseline: str, group_to_compare: str) -> list:
-        """Build a simple contrast for pairwise comparisons.
-
-        In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO.
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> pd.Series:
         """
-        return [column, baseline, group_to_compare]
+        Build a simple contrast for pairwise comparisons.
+
+        This is an alias for
+
+        ```
+        model.cond(column=group_to_compare) - model.cond(column=baseline)
+        ```
+
+        Parameters
+        ----------
+        column
+            column in adata.obs to test on
+        baseline
+            baseline category (denominator)
+        group_to_compare
+            category to compare against baseline (nominator)
+
+        Returns
+        -------
+        Numeric contrast vector
+        """
+        return self.cond(**{column: group_to_compare}) - self.cond(**{column: baseline})
