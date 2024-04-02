@@ -1,13 +1,16 @@
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 
 import numpy as np
 import pandas as pd
 from anndata import AnnData
 from formulaic import model_matrix
 from formulaic.model_matrix import ModelMatrix
+
+from multi_condition_comparisions._util import check_is_numeric_matrix
 
 
 @dataclass
@@ -32,7 +35,7 @@ class MethodBase(ABC):
         **kwargs,
     ):
         """
-        Initialize the method
+        Initialize the method.
 
         Parameters
         ----------
@@ -53,17 +56,12 @@ class MethodBase(ABC):
 
         self.layer = layer
 
-        # Do some sanity checks on the input. Do them after the mask is applied.
-        # Check that counts have no NaN or Inf values.
-        if np.any(~np.isfinite(self.data)):
-            raise ValueError("Counts cannot contain negative, NaN or Inf values.")
-        # Check that counts have numeric values.
-        if not np.issubdtype(self.adata.X.dtype, np.number):
-            raise ValueError("Counts must be numeric.")
+        # Check after mask has been applied.
+        check_is_numeric_matrix(self.data)
 
     @property
     def data(self):
-        """Get the data matrix from anndata this object was initalized with (X or layer)"""
+        """Get the data matrix from anndata this object was initalized with (X or layer)."""
         if self.layer is None:
             return self.adata.X
         else:
@@ -76,11 +74,13 @@ class MethodBase(ABC):
         adata: AnnData,
         column: str,
         baseline: str,
-        groups_to_compare: str | Sequence[str],
+        groups_to_compare: str | Sequence[str] | None,
         *,
-        paired_by: str = None,
+        paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
+        fit_kwargs: Mapping = MappingProxyType({}),
+        test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
         """
         Compare between groups in a specified column.
@@ -97,10 +97,10 @@ class MethodBase(ABC):
         column
             column in obs that contains the grouping information
         baseline
-            baseline value (one category from variable). If set to "None" this refers to "all other categories".
+            baseline value (one category from variable).
         groups_to_compare
             One or multiple categories from variable to compare against baseline. Setting this to None refers to
-            "all categories"
+            "all other categories"
         paired_by
             Column from `obs` that contains information about paired sample (e.g. subject_id)
         mask
@@ -163,13 +163,39 @@ class LinearModelBase(MethodBase):
         paired_by: str | None = None,
         mask: str | None = None,
         layer: str | None = None,
-        fit_kwargs: dict = None,
-        test_kwargs: dict = None,
+        fit_kwargs: Mapping = MappingProxyType({}),
+        test_kwargs: Mapping = MappingProxyType({}),
     ) -> pd.DataFrame:
-        if test_kwargs is None:
-            test_kwargs = {}
-        if fit_kwargs is None:
-            fit_kwargs = {}
+        """
+        Compare between groups in a specified column.
+
+        This is a high-level interface that is kept simple on purpose and
+        only supports comparisons between groups on a single column at a time.
+        For more complex designs, please use the LinearModel method classes directly.
+
+        Parameters
+        ----------
+        adata
+            AnnData object
+        column
+            column in obs that contains the grouping information
+        baseline
+            baseline value (one category from variable).
+        groups_to_compare
+            One or multiple categories from variable to compare against baseline. Setting this to None refers to
+            "all other categories"
+        paired_by
+            Column from `obs` that contains information about paired sample (e.g. subject_id)
+        mask
+            Subset anndata by a boolean mask stored in this column in `.obs` before making any tests
+        layer
+            Use this layer instead of `.X`.
+
+        Returns
+        -------
+        Pandas dataframe with results ordered by significance. If multiple comparisons were performed this
+        is indicated in an additional column.
+        """
         design = f"~{column}"
         if paired_by is not None:
             design += f"+{paired_by}"
@@ -177,10 +203,8 @@ class LinearModelBase(MethodBase):
             groups_to_compare = [groups_to_compare]
         model = cls(adata, design=design, mask=mask, layer=layer)
 
-        ## Fit model
         model.fit(**fit_kwargs)
 
-        ## Test contrasts
         de_res = model.test_contrasts(
             {
                 group_to_compare: model.contrast(column=column, baseline=baseline, group_to_compare=group_to_compare)
@@ -234,15 +258,15 @@ class LinearModelBase(MethodBase):
         self, contrasts: list[str] | dict[str, np.ndarray] | dict[str, list] | np.ndarray, **kwargs
     ) -> pd.DataFrame:
         """
-        Conduct a specific test.  Please use :method:`contrast` to build the contrasts instead of building it on your own.
+        Conduct a specific test.
+
+        Please use :method:`contrast` to build the contrasts instead of building it on your own.
 
         Parameters
         ----------
         contrasts:
             either a single contrast, or a dictionary of contrasts where the key is the name for that particular contrast.
-            Each contrast can be either a vector of coefficients (the most general case), a string, or a some fancy DSL
-            (details still need to be figured out).
-
+            Each contrast can be either a vector of coefficients (the most general case), a string, a DSL (work in progress)
             or a tuple with three elements contrasts = ("condition", "control", "treatment")
         """
         if not isinstance(contrasts, dict):
@@ -252,9 +276,6 @@ class LinearModelBase(MethodBase):
             results.append(self._test_single_contrast(contrast, **kwargs).assign(contrast=name))
 
         results_df = pd.concat(results)
-        results_df.rename(
-            columns={"pvalue": "pvals", "padj": "pvals_adj", "log2FoldChange": "logfoldchanges"}, inplace=True
-        )
 
         return results_df
 
@@ -328,5 +349,8 @@ class LinearModelBase(MethodBase):
         return self.design.model_spec.get_model_matrix(df)
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> list:
-        """Build a simple contrast for pairwise comparisons.  In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO."""
+        """Build a simple contrast for pairwise comparisons.
+
+        In the future all methods should be able to accept the output of :method:`StatsmodelsDE.contrast` but alas a big TODO.
+        """
         return [column, baseline, group_to_compare]

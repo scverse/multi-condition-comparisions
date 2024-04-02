@@ -44,13 +44,14 @@ class EdgeR(LinearModelBase):
             rpy2.robjects.numpy2ri.activate()
 
         except ImportError:
-            raise ImportError("edger requires rpy2 to be installed. ") from None
+            raise ImportError("edger requires rpy2 to be installed.") from None
 
         try:
             edger = importr("edgeR")
         except ImportError:
             raise ImportError(
-                "edgeR requires a valid R installation with the following packages: " "edgeR, BiocParallel, RhpcBLASctl"
+                "edgeR requires a valid R installation with the following packages:\n"
+                "edgeR, BiocParallel, RhpcBLASctl"
             ) from None
 
         # Convert dataframe
@@ -136,5 +137,7 @@ class EdgeR(LinearModelBase):
 
         # Convert results to pandas
         de_res = ro.conversion.rpy2py(ro.globalenv["de_res"])
+        de_res.index.name = "variable"
+        de_res = de_res.reset_index()
 
-        return de_res.rename(columns={"PValue": "pvals", "logFC": "logfoldchanges", "FDR": "pvals_adj"})
+        return de_res.rename(columns={"PValue": "p_value", "logFC": "log_fc", "FDR": "adj_p_value"})
