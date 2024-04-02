@@ -68,7 +68,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
 
         @override
         def _flatten_encoded_evaled_factor(self, name: str, values: FactorValues[dict]) -> dict[str, Any]:
-            """Function is called at the end, here se still have access to the raw factor values."""
+            """Function is called at the end, here we still have access to the raw factor values."""
             factor_metadata = self.factor_metadata_storage[name]
             factor_metadata.drop_field = values.__formulaic_metadata__.drop_field
             factor_metadata.categories = values.__formulaic_metadata__.column_names
