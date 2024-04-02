@@ -8,6 +8,7 @@ from formulaic import FactorValues, ModelSpec
 from formulaic.materializers import PandasMaterializer
 from formulaic.materializers.types import EvaluatedFactor
 from interface_meta import override
+from formulaic.parser.types import Factor
 
 
 @dataclass
