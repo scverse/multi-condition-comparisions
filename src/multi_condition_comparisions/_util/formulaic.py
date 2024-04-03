@@ -1,6 +1,6 @@
 """Helpers to interact with Formulaic Formulas"""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,8 +92,32 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
         REGISTER_INPUTS = ("pandas.core.frame.DataFrame",)
         REGISTER_OUTPUTS = ("pandas", "numpy", "sparse")
 
-        factor_metadata_storage = factor_storage
-        recording_active = True
+        def __init__(
+            self,
+            data: Any,
+            context: Mapping[str, Any] | None = None,
+            record_factor_metadata: bool = False,
+            **params: Any,
+        ):
+            """
+            Initialize the Materializer
+
+            Parameters
+            ----------
+            data
+                passed to PandasMaterializer
+            context
+                passed to PandasMaterializer
+            record_factor_metadata
+                Flag that tells whether this particular instance of the custom materializer class
+                is supposed to record factor metadata. Only the instance that is used for building the design
+                matrix should record the metadata. All other instances (e.g. used to generate contrast vectors)
+                should not record metadata to not overwrite the specifications from the design matrix.
+            **params
+                passed to PandasMaterializer
+            """
+            self.factor_metadata_storage = factor_storage if record_factor_metadata else None
+            super().__init__(data, context, **params)
 
         def stop_recording(self):
             """
@@ -102,7 +126,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
             Then the materializer can be reused for creating contrast vectors without modifying the stored values.
             """
             # Use class variable here
-            CustomPandasMaterializer.recording_active = False
+            CustomPandasMaterializer.record_factor_metadata = False
 
         @override
         def _encode_evaled_factor(
@@ -113,7 +137,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
 
             We can record some metadata, before we call the original function.
             """
-            if self.recording_active:
+            if self.factor_metadata_storage is not None:
                 if factor.expr in self.factor_metadata_storage and not (
                     factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache
                 ):
@@ -138,7 +162,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
 
             Here we have access to additional metadata, such as `drop_field`.
             """
-            if self.recording_active:
+            if self.factor_metadata_storage is not None:
                 factor_metadata = self.factor_metadata_storage[name]
                 factor_metadata.drop_field = values.__formulaic_metadata__.drop_field
                 factor_metadata.column_names = values.__formulaic_metadata__.column_names

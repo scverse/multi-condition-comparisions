@@ -162,7 +162,7 @@ def test_custom_materializer(test_adata_minimal, formula, reorder_categorical, e
         for col, order in reorder_categorical.items():
             test_adata_minimal.obs[col] = pd.Categorical(test_adata_minimal.obs[col], categories=order)
     factor_storage, materializer = get_factor_storage_and_materializer()
-    materializer(test_adata_minimal.obs).get_model_matrix(formula)
+    materializer(test_adata_minimal.obs, record_factor_metadata=True).get_model_matrix(formula)
     for factor, expected_metadata in expected_factor_metadata.items():
         actual_metadata = factor_storage[factor]
         for k in expected_metadata:

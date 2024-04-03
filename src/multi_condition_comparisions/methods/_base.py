@@ -145,16 +145,13 @@ class LinearModelBase(MethodBase):
         super().__init__(adata, mask=mask, layer=layer)
         self._check_counts()
 
-        self.materializer = None
         self.factor_storage = None
         """Object to store metadata of formulaic factors which is used for building contrasts later. If a design matrix
         is passed directly, this remains None."""
 
         if isinstance(design, str):
             self.factor_storage, materializer_class = get_factor_storage_and_materializer()
-            self.materializer = materializer_class(adata.obs)
-            self.design = self.materializer.get_model_matrix(design)
-            self.materializer.stop_recording()
+            self.design = materializer_class(adata.obs, record_factor_metadata=True).get_model_matrix(design)
         else:
             self.design = design
 
