@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import numpy as np
 import pandas as pd
 from scanpy import logging
@@ -81,7 +83,7 @@ class EdgeR(LinearModelBase):
         ro.globalenv["fit"] = fit
         self.fit = fit
 
-    def _test_single_contrast(self, contrast: list[str], **kwargs) -> pd.DataFrame:
+    def _test_single_contrast(self, contrast: Sequence[float], **kwargs) -> pd.DataFrame:
         """
         Conduct test for each contrast and return a data frame
 
@@ -119,11 +121,7 @@ class EdgeR(LinearModelBase):
             ) from None
 
         # Convert vector to R, which drops a category like `self.design_matrix` to use the intercept for the left out.
-        contrast_vec = [0] * len(self.design.columns)
-        make_contrast_column_key = lambda ind: f"{contrast[0]}[T.{contrast[ind]}]"
-        for index in [1, 2]:
-            if make_contrast_column_key(index) in self.design.columns:
-                contrast_vec[self.design.columns.to_list().index(f"{contrast[0]}[T.{contrast[index]}]")] = 1
+        contrast_vec = contrast
         contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast_vec))
         ro.globalenv["contrast_vec"] = contrast_vec_r
 
