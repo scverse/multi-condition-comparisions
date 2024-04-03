@@ -24,7 +24,7 @@ def MockLinearModel():
 @pytest.mark.parametrize(
     "formula,cond_kwargs,expected_contrast",
     [
-        ["~ condition", {"condition": "A"}, [0, 0]],
+        ["~ condition", {"condition": "A"}, [1, 0]],
     ],
 )
 def test_model_cond(test_adata_minimal, MockLinearModel, formula, cond_kwargs, expected_contrast):

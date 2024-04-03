@@ -117,11 +117,6 @@ class MethodBase(ABC):
 class LinearModelBase(MethodBase):
     """Base class for DE methods that have a linear model interface (i.e. support design matrices and contrast testing)"""
 
-    materializer = None
-    factor_storage = None
-    """Object to store metadata of formulaic factors which is used for building contrasts later. If a design matrix
-    is passed directly, this remains None."""
-
     def __init__(
         self,
         adata: AnnData,
@@ -150,9 +145,16 @@ class LinearModelBase(MethodBase):
         super().__init__(adata, mask=mask, layer=layer)
         self._check_counts()
 
+        self.materializer = None
+        self.factor_storage = None
+        """Object to store metadata of formulaic factors which is used for building contrasts later. If a design matrix
+        is passed directly, this remains None."""
+
         if isinstance(design, str):
-            self.factor_storage, self.materializer = get_factor_storage_and_materializer()
-            self.design = self.materializer(adata.obs).get_model_matrix(design)
+            self.factor_storage, materializer_class = get_factor_storage_and_materializer()
+            self.materializer = materializer_class(adata.obs)
+            self.design = self.materializer.get_model_matrix(design)
+            self.materializer.stop_recording()
         else:
             self.design = design
 

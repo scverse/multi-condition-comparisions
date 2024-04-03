@@ -93,6 +93,16 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
         REGISTER_OUTPUTS = ("pandas", "numpy", "sparse")
 
         factor_metadata_storage = factor_storage
+        recording_active = True
+
+        def stop_recording(self):
+            """
+            Call this function after the model matrix has been completely initalized.
+
+            Then the materializer can be reused for creating contrast vectors without modifying the stored values.
+            """
+            # Use class variable here
+            CustomPandasMaterializer.recording_active = False
 
         @override
         def _encode_evaled_factor(
@@ -103,21 +113,22 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
 
             We can record some metadata, before we call the original function.
             """
-            if factor.expr in self.factor_metadata_storage and not (
-                factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache
-            ):
-                # the same factor might be referred to multiple times in the same formula -- for instance, when using
-                # an interaction term such as group*condition. In that case formulaic is reuding a cached encoding.
-                # However, if it's not just reusing an existing encoding, something unexpected is happening that
-                # we haven't accounted for yet.
-                raise AssertionError("Factor already present in metadata storage and not reusing cached encoding")
-            self.factor_metadata_storage[factor.expr] = FactorMetadata(
-                name=factor.expr,
-                reduced_rank=reduced_rank,
-                categories=tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique())),
-                custom_encoder=factor.metadata.encoder is not None,
-                kind=factor.metadata.kind,
-            )
+            if self.recording_active:
+                if factor.expr in self.factor_metadata_storage and not (
+                    factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache
+                ):
+                    # the same factor might be referred to multiple times in the same formula -- for instance, when using
+                    # an interaction term such as group*condition. In that case formulaic is reuding a cached encoding.
+                    # However, if it's not just reusing an existing encoding, something unexpected is happening that
+                    # we haven't accounted for yet.
+                    raise AssertionError("Factor already present in metadata storage and not reusing cached encoding")
+                self.factor_metadata_storage[factor.expr] = FactorMetadata(
+                    name=factor.expr,
+                    reduced_rank=reduced_rank,
+                    categories=tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique())),
+                    custom_encoder=factor.metadata.encoder is not None,
+                    kind=factor.metadata.kind,
+                )
             return super()._encode_evaled_factor(factor, spec, drop_rows, reduced_rank)
 
         @override
@@ -127,10 +138,11 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
 
             Here we have access to additional metadata, such as `drop_field`.
             """
-            factor_metadata = self.factor_metadata_storage[name]
-            factor_metadata.drop_field = values.__formulaic_metadata__.drop_field
-            factor_metadata.column_names = values.__formulaic_metadata__.column_names
-            factor_metadata.colname_format = values.__formulaic_metadata__.format
+            if self.recording_active:
+                factor_metadata = self.factor_metadata_storage[name]
+                factor_metadata.drop_field = values.__formulaic_metadata__.drop_field
+                factor_metadata.column_names = values.__formulaic_metadata__.column_names
+                factor_metadata.colname_format = values.__formulaic_metadata__.format
 
             return super()._flatten_encoded_evaled_factor(name, values)
 
