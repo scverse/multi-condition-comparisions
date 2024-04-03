@@ -360,7 +360,7 @@ class LinearModelBase(MethodBase):
                     "Ambiguous variable! Building contrasts with model.cond only works "
                     "when each variable occurs only once per formula"
                 )
-            term = term.pop()
+            term = next(iter(term))
             term_metadata = self.factor_storage[term]
             if var in cond_dict:
                 # In this case we keep the specified value in the dict, but we verify that it's a valid category

@@ -50,11 +50,11 @@ class EdgeR(LinearModelBase):
 
         try:
             edger = importr("edgeR")
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "edgeR requires a valid R installation with the following packages:\n"
                 "edgeR, BiocParallel, RhpcBLASctl"
-            ) from None
+            ) from e
 
         # Convert dataframe
         with localconverter(ro.default_converter + numpy2ri.converter):
@@ -121,8 +121,7 @@ class EdgeR(LinearModelBase):
             ) from None
 
         # Convert vector to R, which drops a category like `self.design_matrix` to use the intercept for the left out.
-        contrast_vec = contrast
-        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast_vec))
+        contrast_vec_r = ro.conversion.py2rpy(np.asarray(contrast))
         ro.globalenv["contrast_vec"] = contrast_vec_r
 
         # Test contrast with R
