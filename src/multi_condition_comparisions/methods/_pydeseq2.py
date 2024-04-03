@@ -63,18 +63,27 @@ class PyDESeq2(LinearModelBase):
         dds.deseq2()
         self.dds = dds
 
-    def _test_single_contrast(self, contrast: list[str], alpha=0.05, **kwargs) -> pd.DataFrame:
+    # TODO: PyDeseq2 doesn't support arbitrary designs and contrasts yet
+    # see https://github.com/owkin/PyDESeq2/issues/213
+    #
+    # Therefore these functions are overridden in a way to make it work with PyDESeq2,
+    # ingoring the inconsistency of function signatures. Once arbitrary design
+    # matrices and contrasts are supported by PyDEseq2, we can fully support the
+    # Linear model interface.
+    def _test_single_contrast(self, contrast: list[str], alpha=0.05, **kwargs) -> pd.DataFrame:  # type: ignore
         """
         Conduct a specific test and returns a Pandas DataFrame.
 
+        Note that PyDESeq2 doesn't support arbitrary contrasts yet.
+
         Parameters
         ----------
-        contrasts:
-            list of three strings of the form
-            ["variable", "tested level", "reference level"]
-        alpha: p value threshold used for controlling fdr with
-        independent hypothesis weighting
-        kwargs: extra arguments to pass to DeseqStats()
+        contrasts
+            list of three strings of the form `["variable", "tested level", "reference level"]`.
+        alpha
+            p value threshold used for controlling fdr with independent hypothesis weighting
+        kwargs
+            extra arguments to pass to DeseqStats()
         """
         stat_res = DeseqStats(self.dds, contrast=contrast, alpha=alpha, **kwargs)
         # Calling `.summary()` is required to fill the `results_df` data frame
@@ -87,3 +96,11 @@ class PyDESeq2(LinearModelBase):
         res_df.index.name = "variable"
         res_df = res_df.reset_index()
         return res_df
+
+    def cond(self, **kwargs) -> ndarray:
+        raise NotImplementedError(
+            "PyDESeq2 currently doesn't support arbitratry contrasts, see https://github.com/owkin/PyDESeq2/issues/213"
+        )
+
+    def contrast(self, column: str, baseline: str, group_to_compare: str) -> tuple[str, str, str]:  # type: ignore
+        return (column, group_to_compare, baseline)
