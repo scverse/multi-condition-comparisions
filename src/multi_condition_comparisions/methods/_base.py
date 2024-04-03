@@ -353,8 +353,10 @@ class LinearModelBase(MethodBase):
         # (the one that is usually dropped from the model for being redundant).
         #
         # `model_spec.variable_terms` is a mapping from variable to a set of terms. Unless a variable is used twice in the
-        # same formula (which for don't support for now), it contains exactly one element.
-        for var, term in self.design.model_spec.variable_terms.items():
+        # same formula (which for don't support for now), it contains exactly one element. It also contains
+        # "non-data" variables such as `C` - therefore we use `self.variables` to loop through.
+        for var in self.variables:
+            term = self.design.model_spec.variable_terms[var]
             if len(term) != 1:
                 raise RuntimeError(
                     "Ambiguous variable! Building contrasts with model.cond only works "

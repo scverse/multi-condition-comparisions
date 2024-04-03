@@ -25,6 +25,14 @@ def MockLinearModel():
     "formula,cond_kwargs,expected_contrast",
     [
         ["~ condition", {"condition": "A"}, [1, 0]],
+        ["~ condition", {"condition": "B"}, [1, 1]],
+        ["~ 0 + condition", {"condition": "A"}, [1, 0]],
+        ["~ 0 + condition", {"condition": "B"}, [0, 1]],
+        ["~ donor", {"donor": "D0"}, [1, 0, 0, 0]],
+        ["~ C(donor)", {"donor": "D0"}, [1, 0, 0, 0]],
+        ["~ C(donor, contr.treatment(base='D2'))", {"donor": "D2"}, [1, 0, 0, 0]],
+        ["~ C(donor, contr.treatment(base='D2'))", {"donor": "D0"}, [1, 1, 0, 0]],
+        # TODO: also include tests for errors that should be caught by .cond
     ],
 )
 def test_model_cond(test_adata_minimal, MockLinearModel, formula, cond_kwargs, expected_contrast):
