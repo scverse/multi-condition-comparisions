@@ -2,7 +2,12 @@ import pandas as pd
 import pytest
 from formulaic.parser.types import Factor
 
-from multi_condition_comparisions._util.formulaic import get_factor_storage_and_materializer
+from multi_condition_comparisions._util.formulaic import (
+    AmbiguousAttributeError,
+    FactorMetadata,
+    get_factor_storage_and_materializer,
+    resolve_ambiguous,
+)
 
 
 @pytest.mark.parametrize(
@@ -147,7 +152,10 @@ from multi_condition_comparisions._util.formulaic import get_factor_storage_and_
             None,
             {
                 "condition": {"reduced_rank": True, "custom_encoder": False, "base": "A"},
-                "donor": {"reduced_rank": True, "custom_encoder": False, "base": "D0"},
+                "donor": {
+                    "custom_encoder": False,
+                    "drop_field": "D0",
+                },  # `reduced_rank` and `base` will be ambigous here because Formulaic generates both version of the factor internally
             },
         ],
     ],
@@ -173,7 +181,29 @@ def test_custom_materializer(test_adata_minimal, formula, reorder_categorical, e
     materializer(test_adata_minimal.obs, record_factor_metadata=True).get_model_matrix(formula)
     for factor, expected_metadata in expected_factor_metadata.items():
         actual_metadata = factor_storage[factor]
-        assert len(actual_metadata) == 1
-        actual_metadata = actual_metadata[0]
         for k in expected_metadata:
-            assert getattr(actual_metadata, k) == expected_metadata[k]
+            assert resolve_ambiguous(actual_metadata, k) == expected_metadata[k]
+
+
+def test_resolve_ambiguous():
+    obj1 = FactorMetadata("F1", True, True, ["A", "B"], Factor.Kind.CATEGORICAL)
+    obj2 = FactorMetadata("F2", True, False, ["A", "B"], Factor.Kind.CATEGORICAL)
+    obj3 = FactorMetadata("F3", True, False, None, Factor.Kind.NUMERICAL)
+
+    with pytest.raises(ValueError):
+        resolve_ambiguous([], "foo")
+
+    with pytest.raises(AttributeError):
+        resolve_ambiguous([obj1, obj2], "doesntexist")
+
+    with pytest.raises(AmbiguousAttributeError):
+        assert resolve_ambiguous([obj1, obj2], "name")
+
+    assert resolve_ambiguous([obj1, obj2, obj3], "reduced_rank") is True
+    assert resolve_ambiguous([obj1, obj2], "categories") == ["A", "B"]
+
+    with pytest.raises(AmbiguousAttributeError):
+        assert resolve_ambiguous([obj1, obj2, obj3], "categories")
+
+    with pytest.raises(AmbiguousAttributeError):
+        assert resolve_ambiguous([obj1, obj3], "kind")
