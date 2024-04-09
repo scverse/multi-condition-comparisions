@@ -170,6 +170,10 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata
     return factor_storage, CustomPandasMaterializer
 
 
+class AmbiguousAttributeError(ValueError):
+    pass
+
+
 def resolve_ambiguous(objs: Sequence[Any], attr: str) -> Any:
     """Given a list of objects, return an attribute if it is the same between all object. Otherwise raise an error."""
     if not objs:
@@ -180,7 +184,7 @@ def resolve_ambiguous(objs: Sequence[Any], attr: str) -> Any:
     # Check if the attribute is the same for all objects
     for obj in objs[1:]:
         if getattr(obj, attr) != first_obj_attr:
-            raise ValueError(f"Ambiguous attribute '{attr}': values differ between objects")
+            raise AmbiguousAttributeError(f"Ambiguous attribute '{attr}': values differ between objects")
 
     # If attribute is the same for all objects, return it
     return first_obj_attr

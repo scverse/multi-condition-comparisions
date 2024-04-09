@@ -9,7 +9,12 @@ import pandas as pd
 from anndata import AnnData
 
 from multi_condition_comparisions._util import check_is_numeric_matrix
-from multi_condition_comparisions._util.formulaic import Factor, get_factor_storage_and_materializer, resolve_ambiguous
+from multi_condition_comparisions._util.formulaic import (
+    AmbiguousAttributeError,
+    Factor,
+    get_factor_storage_and_materializer,
+    resolve_ambiguous,
+)
 
 
 @dataclass
@@ -364,8 +369,12 @@ class LinearModelBase(MethodBase):
             # individual variablesl `A` and `B`). Some terms have multiple metadata objects, because they are specified
             # multiple times in the formula, or forumlaic resolves them multiple times internally.
             terms_metadata = list(chain.from_iterable(self.factor_storage[term] for term in terms))
+
+            # If the variable is specified in the cond_dict explicitly, we just keep it as is.
+            # We still verify that it's a valid category, otherwise simple typos are not caught and lead to
+            # zeros in the design matrix.
             if var in cond_dict:
-                # In this case we keep the specified value in the dict, but we verify that it's a valid category
+                # it should never be non-ambiguous. If it happens, it's an edge case we don't know about (-> let it fail)
                 tmp_categories = resolve_ambiguous(terms_metadata, "categories")
                 if (
                     resolve_ambiguous(terms_metadata, "kind") == Factor.Kind.CATEGORICAL
@@ -374,14 +383,24 @@ class LinearModelBase(MethodBase):
                     raise ValueError(
                         f"You specified a non-existant category for {var}. Possible categories: {', '.join(tmp_categories)}"
                     )
+
+            # If the variable is not specified, we want to fill it with its default value (i.e. the base category)
             else:
-                # fill with default values
                 if resolve_ambiguous(terms_metadata, "kind") == Factor.Kind.CATEGORICAL:
-                    tmp_base = resolve_ambiguous(terms_metadata, "base")
-                    cond_dict[var] = (
-                        tmp_base if tmp_base is not None else "\0"
-                    )  # can be any other string that is not a category, but not None
+                    # In this case it can be ambiguous for some formulas -> Tell the user to specify the variable explicitly
+                    try:
+                        tmp_base = resolve_ambiguous(terms_metadata, "base")
+                    except AmbiguousAttributeError as e:
+                        raise ValueError(
+                            f"Could not automatically resolve base category for variable {var}. Please specify it explicity in `model.cond`."
+                        ) from e
+
+                    # if tmp_base is None (no-intercept model), set it to the NUL string \0.
+                    # In principle, it could be any string that is not a valid category, but it cannot be None
+                    # because this leads to an error in `get_model_matrix`
+                    cond_dict[var] = tmp_base if tmp_base is not None else "\0"
                 else:
+                    # Set to zero for continuous variables
                     cond_dict[var] = 0
 
         df = pd.DataFrame([kwargs])
