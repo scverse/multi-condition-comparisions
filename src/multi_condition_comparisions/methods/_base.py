@@ -353,14 +353,18 @@ class LinearModelBase(MethodBase):
         # same formula (which for don't support for now), it contains exactly one element. It also contains
         # "non-data" variables such as `C` - therefore we use `self.variables` to loop through.
         for var in self.variables:
-            term = self.design.model_spec.variable_terms[var]
-            if len(term) != 1:
-                raise RuntimeError(
+            # A variable can refer to one or multiple terms. Either if a variable is specified
+            # multiple times in the model (e.g. ~ var + C(var); ~ continuous + np.log(continuous))
+            # or when there's an interaction term (e.g. ~ A * B ==> terms `A`, `B`, `A:B`)
+            terms = self.design.model_spec.variable_terms[var]
+            # Only terms tied to a single variable are in the factor storage. Interaction terms (A:B) are not.
+            terms_metadata = [self.factor_storage[term] for term in terms if term in self.factor_storage]
+            if len(terms_metadata) != 1:
+                raise ValueError(
                     "Ambiguous variable! Building contrasts with model.cond only works "
                     "when each variable occurs only once per formula"
                 )
-            term = next(iter(term))
-            term_metadata = self.factor_storage[term]
+            term_metadata = terms_metadata[0]
             if var in cond_dict:
                 # In this case we keep the specified value in the dict, but we verify that it's a valid category
                 if term_metadata.kind == Factor.Kind.CATEGORICAL and cond_dict[var] not in term_metadata.categories:
@@ -370,7 +374,9 @@ class LinearModelBase(MethodBase):
             else:
                 # fill with default values
                 if term_metadata.kind == Factor.Kind.CATEGORICAL:
-                    cond_dict[var] = term_metadata.base
+                    cond_dict[var] = (
+                        term_metadata.base if term_metadata.base is not None else "\0"
+                    )  # can be any other string that is not a category, but not None
                 else:
                     cond_dict[var] = 0
 

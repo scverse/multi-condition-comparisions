@@ -142,6 +142,14 @@ from multi_condition_comparisions._util.formulaic import get_factor_storage_and_
                 },
             },
         ],
+        [
+            "~ condition:donor",
+            None,
+            {
+                "condition": {"reduced_rank": True, "custom_encoder": False, "base": "A"},
+                "donor": {"reduced_rank": True, "custom_encoder": False, "base": "D0"},
+            },
+        ],
     ],
 )
 def test_custom_materializer(test_adata_minimal, formula, reorder_categorical, expected_factor_metadata):
@@ -165,5 +173,7 @@ def test_custom_materializer(test_adata_minimal, formula, reorder_categorical, e
     materializer(test_adata_minimal.obs, record_factor_metadata=True).get_model_matrix(formula)
     for factor, expected_metadata in expected_factor_metadata.items():
         actual_metadata = factor_storage[factor]
+        assert len(actual_metadata) == 1
+        actual_metadata = actual_metadata[0]
         for k in expected_metadata:
             assert getattr(actual_metadata, k) == expected_metadata[k]

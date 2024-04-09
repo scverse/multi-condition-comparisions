@@ -1,5 +1,6 @@
 """Helpers to interact with Formulaic Formulas"""
 
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -70,7 +71,7 @@ class FactorMetadata:
                 return self.drop_field
 
 
-def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], type]:
+def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata]], type]:
     """
     Keep track of categorical factors used in a model spec.
 
@@ -83,7 +84,9 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
     CustomPandasMaterializer
         A materializer class that is tied to the particular instance of `factor_storage`.
     """
-    factor_storage: dict[str, FactorMetadata] = {}
+    # There can be multiple FactorMetadata entries per sample, for instance when formulaic generates an interaction
+    # term, it generates the factor with both full rank and reduced rank.
+    factor_storage: dict[str, list[FactorMetadata]] = defaultdict(list)
 
     class CustomPandasMaterializer(PandasMaterializer):
         """An extension of the PandasMaterializer that records all cateogrical variables and their (base) categories."""
@@ -117,16 +120,9 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
                 passed to PandasMaterializer
             """
             self.factor_metadata_storage = factor_storage if record_factor_metadata else None
+            # temporary pointer to metadata of factor that is currently evaluated
+            self._current_factor: FactorMetadata = None
             super().__init__(data, context, **params)
-
-        def stop_recording(self):
-            """
-            Call this function after the model matrix has been completely initalized.
-
-            Then the materializer can be reused for creating contrast vectors without modifying the stored values.
-            """
-            # Use class variable here
-            CustomPandasMaterializer.record_factor_metadata = False
 
         @override
         def _encode_evaled_factor(
@@ -137,22 +133,21 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
 
             We can record some metadata, before we call the original function.
             """
+            assert (
+                self._current_factor is None
+            ), "_current_factor should always be None when we start recording metadata"
             if self.factor_metadata_storage is not None:
-                if factor.expr in self.factor_metadata_storage and not (
-                    factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache
-                ):
-                    # the same factor might be referred to multiple times in the same formula -- for instance, when using
-                    # an interaction term such as group*condition. In that case formulaic is reuding a cached encoding.
-                    # However, if it's not just reusing an existing encoding, something unexpected is happening that
-                    # we haven't accounted for yet.
-                    raise AssertionError("Factor already present in metadata storage and not reusing cached encoding")
-                self.factor_metadata_storage[factor.expr] = FactorMetadata(
-                    name=factor.expr,
-                    reduced_rank=reduced_rank,
-                    categories=tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique())),
-                    custom_encoder=factor.metadata.encoder is not None,
-                    kind=factor.metadata.kind,
-                )
+                # Don't store if the factor is cached (then we should already have recorded it)
+                if factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache:
+                    assert factor.expr in self.factor_metadata_storage, "Factor should be there since it's cached"
+                else:
+                    self._current_factor = FactorMetadata(
+                        name=factor.expr,
+                        reduced_rank=reduced_rank,
+                        categories=tuple(sorted(factor.values.drop(index=factor.values.index[drop_rows]).unique())),
+                        custom_encoder=factor.metadata.encoder is not None,
+                        kind=factor.metadata.kind,
+                    )
             return super()._encode_evaled_factor(factor, spec, drop_rows, reduced_rank)
 
         @override
@@ -162,11 +157,13 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, FactorMetadata], ty
 
             Here we have access to additional metadata, such as `drop_field`.
             """
-            if self.factor_metadata_storage is not None:
-                factor_metadata = self.factor_metadata_storage[name]
-                factor_metadata.drop_field = values.__formulaic_metadata__.drop_field
-                factor_metadata.column_names = values.__formulaic_metadata__.column_names
-                factor_metadata.colname_format = values.__formulaic_metadata__.format
+            if self._current_factor is not None:
+                assert self._current_factor.name == name
+                self._current_factor.drop_field = values.__formulaic_metadata__.drop_field
+                self._current_factor.column_names = values.__formulaic_metadata__.column_names
+                self._current_factor.colname_format = values.__formulaic_metadata__.format
+                self.factor_metadata_storage[name].append(self._current_factor)
+                self._current_factor = None
 
             return super()._flatten_encoded_evaled_factor(name, values)
 
