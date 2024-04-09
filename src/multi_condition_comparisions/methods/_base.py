@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from itertools import chain
 from types import MappingProxyType
 
 import numpy as np
@@ -8,7 +9,7 @@ import pandas as pd
 from anndata import AnnData
 
 from multi_condition_comparisions._util import check_is_numeric_matrix
-from multi_condition_comparisions._util.formulaic import Factor, get_factor_storage_and_materializer
+from multi_condition_comparisions._util.formulaic import Factor, get_factor_storage_and_materializer, resolve_ambiguous
 
 
 @dataclass
@@ -350,32 +351,35 @@ class LinearModelBase(MethodBase):
         # (the one that is usually dropped from the model for being redundant).
         #
         # `model_spec.variable_terms` is a mapping from variable to a set of terms. Unless a variable is used twice in the
-        # same formula (which for don't support for now), it contains exactly one element. It also contains
+        # same formula, it contains exactly one element. It also contains
         # "non-data" variables such as `C` - therefore we use `self.variables` to loop through.
         for var in self.variables:
             # A variable can refer to one or multiple terms. Either if a variable is specified
             # multiple times in the model (e.g. ~ var + C(var); ~ continuous + np.log(continuous))
             # or when there's an interaction term (e.g. ~ A * B ==> terms `A`, `B`, `A:B`)
             terms = self.design.model_spec.variable_terms[var]
-            # Only terms tied to a single variable are in the factor storage. Interaction terms (A:B) are not.
-            terms_metadata = [self.factor_storage[term] for term in terms if term in self.factor_storage]
-            if len(terms_metadata) != 1:
-                raise ValueError(
-                    "Ambiguous variable! Building contrasts with model.cond only works "
-                    "when each variable occurs only once per formula"
-                )
-            term_metadata = terms_metadata[0]
+
+            # Get list of all Metadata objects for the associated terms.
+            # Some terms don't have metadata (e.g. instead of an interaction term `A:B`, metadata exists only for the
+            # individual variablesl `A` and `B`). Some terms have multiple metadata objects, because they are specified
+            # multiple times in the formula, or forumlaic resolves them multiple times internally.
+            terms_metadata = list(chain.from_iterable(self.factor_storage[term] for term in terms))
             if var in cond_dict:
                 # In this case we keep the specified value in the dict, but we verify that it's a valid category
-                if term_metadata.kind == Factor.Kind.CATEGORICAL and cond_dict[var] not in term_metadata.categories:
+                tmp_categories = resolve_ambiguous(terms_metadata, "categories")
+                if (
+                    resolve_ambiguous(terms_metadata, "kind") == Factor.Kind.CATEGORICAL
+                    and cond_dict[var] not in tmp_categories
+                ):
                     raise ValueError(
-                        f"You specified a non-existant category for {var}. Possible categories: {', '.join(term_metadata.categories)}"
+                        f"You specified a non-existant category for {var}. Possible categories: {', '.join(tmp_categories)}"
                     )
             else:
                 # fill with default values
-                if term_metadata.kind == Factor.Kind.CATEGORICAL:
+                if resolve_ambiguous(terms_metadata, "kind") == Factor.Kind.CATEGORICAL:
+                    tmp_base = resolve_ambiguous(terms_metadata, "base")
                     cond_dict[var] = (
-                        term_metadata.base if term_metadata.base is not None else "\0"
+                        tmp_base if tmp_base is not None else "\0"
                     )  # can be any other string that is not a category, but not None
                 else:
                     cond_dict[var] = 0
