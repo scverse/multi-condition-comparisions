@@ -374,7 +374,7 @@ class LinearModelBase(MethodBase):
             # We still verify that it's a valid category, otherwise simple typos are not caught and lead to
             # zeros in the design matrix.
             if var in cond_dict:
-                # it should never be non-ambiguous. If it happens, it's an edge case we don't know about (-> let it fail)
+                # Getting the categories should never be non-ambiguous. If it happens, it's an edge case we don't know about (-> let it fail)
                 tmp_categories = resolve_ambiguous(terms_metadata, "categories")
                 if (
                     resolve_ambiguous(terms_metadata, "kind") == Factor.Kind.CATEGORICAL

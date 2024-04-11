@@ -24,37 +24,50 @@ def MockLinearModel():
 @pytest.mark.parametrize(
     "formula,cond_kwargs,expected_contrast",
     [
+        # single variable
+        ["~ condition", {}, [1, 0]],
         ["~ condition", {"condition": "A"}, [1, 0]],
         ["~ condition", {"condition": "B"}, [1, 1]],
         ["~ condition", {"condition": "42"}, ValueError],  # non-existant category
+        # no-intercept models
         ["~ 0 + condition", {"condition": "A"}, [1, 0]],
         ["~ 0 + condition", {"condition": "B"}, [0, 1]],
+        # Different way of specifying dummy coding
         ["~ donor", {"donor": "D0"}, [1, 0, 0, 0]],
         ["~ C(donor)", {"donor": "D0"}, [1, 0, 0, 0]],
         ["~ C(donor, contr.treatment(base='D2'))", {"donor": "D2"}, [1, 0, 0, 0]],
         ["~ C(donor, contr.treatment(base='D2'))", {"donor": "D0"}, [1, 1, 0, 0]],
+        # Handle continuous covariates
         ["~ donor + continuous", {"donor": "D1"}, [1, 1, 0, 0, 0]],
         ["~ donor + np.log1p(continuous)", {"donor": "D1"}, [1, 1, 0, 0, 0]],
+        ["~ donor + continuous + np.log1p(continuous)", {"donor": "D0"}, [1, 0, 0, 0, 0, 0]],
+        # Nonsense models repeating the same variable, which are nonetheless allowed by formulaic
+        ["~ donor + C(donor)", {"donor": "D1"}, [1, 1, 0, 0, 1, 0, 0]],
+        ["~ donor + C(donor, contr.treatment(base='D2'))", {"donor": "D0"}, [1, 0, 0, 0, 1, 0, 0]],
         [
-            "~ donor + continuous + np.log(continuous)",
-            {"donor": "D0"},
+            "~ condition + donor + C(donor, contr.treatment(base='D2'))",
+            {"condition": "A"},
             ValueError,
-        ],  # current limitation: variables may only be used once per formula
-        [
-            "~ donor + C(donor)",
-            {"donor": "D0"},
-            ValueError,
-        ],  # current limitation: variables may only be used once per formula
+        ],  # donor base category can't be resolved because it's ambiguous -> ValueError
+        # Sum2zero coding
         ["~ C(donor, contr.sum)", {"donor": "D0"}, [1, 1, 0, 0]],
         ["~ C(donor, contr.sum)", {"donor": "D3"}, [1, -1, -1, -1]],
+        # Multiple categorical variables
         ["~ condition + donor", {"condition": "A"}, [1, 0, 0, 0, 0]],
-        ["~ 0 + condition + donor", {"donor": "D1"}, [0, 0, 1, 0, 0]],
         ["~ condition + donor", {"donor": "D2"}, [1, 0, 0, 1, 0]],
         ["~ condition + donor", {"condition": "B", "donor": "D2"}, [1, 1, 0, 1, 0]],
-        ["~ condition * donor", {"condition": "A"}, [1, 0, 0, 0, 0]],
-        ["~ condition + donor + condition:donor", {"condition": "A"}, [1, 0, 0, 0, 0]],
+        ["~ 0 + condition + donor", {"donor": "D1"}, [0, 0, 1, 0, 0]],
+        # Interaction terms
+        ["~ condition * donor", {"condition": "A"}, [1, 0, 0, 0, 0, 0, 0, 0]],
+        ["~ condition + donor + condition:donor", {"condition": "A"}, [1, 0, 0, 0, 0, 0, 0, 0]],
+        ["~ condition * donor", {"condition": "B", "donor": "D2"}, [1, 1, 0, 1, 0, 0, 1, 0]],
+        ["~ condition * C(donor, contr.treatment(base='D2'))", {"condition": "A"}, [1, 0, 0, 0, 0, 0, 0, 0]],
+        [
+            "~ condition * C(donor, contr.treatment(base='D2'))",
+            {"condition": "B", "donor": "D0"},
+            [1, 1, 1, 0, 0, 1, 0, 0],
+        ],
         ["~ condition:donor", {"condition": "A"}, [1, 0, 0, 0, 0]],
-        # TODO: also include tests for errors that should be caught by .cond
     ],
 )
 def test_model_cond(test_adata_minimal, MockLinearModel, formula, cond_kwargs, expected_contrast):
