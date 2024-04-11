@@ -3,6 +3,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain
 from types import MappingProxyType
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ from multi_condition_comparisions._util import check_is_numeric_matrix
 from multi_condition_comparisions._util.formulaic import (
     AmbiguousAttributeError,
     Factor,
+    FactorMetadata,
     get_factor_storage_and_materializer,
     resolve_ambiguous,
 )
@@ -151,12 +153,15 @@ class LinearModelBase(MethodBase):
         super().__init__(adata, mask=mask, layer=layer)
         self._check_counts()
 
-        self.factor_storage = None
-        self.variable_to_factors = None
+        self.factor_storage: dict[str, list[FactorMetadata]] = None
         """Object to store metadata of formulaic factors which is used for building contrasts later. If a design matrix
         is passed directly, this remains None."""
 
+        self.variable_to_factors: dict[str, set[str]] = None
+        """Stores mapping from variables to formulaic factors"""
+
         if isinstance(design, str):
+            # Use custom formulaic materializer that will record factor metadata while creating the model matrix
             self.factor_storage, self.variable_to_factors, materializer_class = get_factor_storage_and_materializer()
             self.design = materializer_class(adata.obs, record_factor_metadata=True).get_model_matrix(design)
         else:
@@ -356,57 +361,102 @@ class LinearModelBase(MethodBase):
         # To do so, we keep the values that were already specified, and fill all other values with the default category
         # (the one that is usually dropped from the model for being redundant).
         #
-        # `model_spec.variable_terms` is a mapping from variable to a set of terms. Unless a variable is used twice in the
-        # same formula, it contains exactly one element. It also contains
-        # "non-data" variables such as `C` - therefore we use `self.variables` to loop through.
+        # self.variables only contains "data-variables", but no "factor variables", such as `C`
         for var in self.variables:
-            # A variable can refer to one or multiple terms. Either if a variable is specified
-            # multiple times in the model (e.g. ~ var + C(var); ~ continuous + np.log(continuous))
-            # or when there's an interaction term (e.g. ~ A * B ==> terms `A`, `B`, `A:B`)
-            factors = self.variable_to_factors[var]
-
-            # Get list of all Metadata objects for the associated Factors.
-            # Some terms don't have metadata (e.g. instead of an interaction term `A:B`, metadata exists only for the
-            # individual variables `A` and `B`). Some terms have multiple metadata objects, because they are specified
-            # multiple times in the formula, or forumlaic resolves them multiple times internally.
-            # terms_metadata = list(chain.from_iterable(self.factor_storage[term] for term in terms))
-            terms_metadata = list(chain.from_iterable(self.factor_storage[f] for f in factors))
-
             # If the variable is specified in the cond_dict explicitly, we just keep it as is.
             # We still verify that it's a valid category, otherwise simple typos are not caught and lead to
             # zeros in the design matrix.
             if var in cond_dict:
-                # Getting the categories should never be non-ambiguous. If it happens, it's an edge case we don't know about (-> let it fail)
-                tmp_categories = resolve_ambiguous(terms_metadata, "categories")
-                if (
-                    resolve_ambiguous(terms_metadata, "kind") == Factor.Kind.CATEGORICAL
-                    and cond_dict[var] not in tmp_categories
-                ):
-                    raise ValueError(
-                        f"You specified a non-existant category for {var}. Possible categories: {', '.join(tmp_categories)}"
-                    )
+                self._check_category(var, cond_dict[var])
 
             # If the variable is not specified, we want to fill it with its default value (i.e. the base category)
             else:
-                if resolve_ambiguous(terms_metadata, "kind") == Factor.Kind.CATEGORICAL:
-                    # In this case it can be ambiguous for some formulas -> Tell the user to specify the variable explicitly
-                    try:
-                        tmp_base = resolve_ambiguous(terms_metadata, "base")
-                    except AmbiguousAttributeError as e:
-                        raise ValueError(
-                            f"Could not automatically resolve base category for variable {var}. Please specify it explicity in `model.cond`."
-                        ) from e
-
-                    # if tmp_base is None (no-intercept model), set it to the NUL string \0.
-                    # In principle, it could be any string that is not a valid category, but it cannot be None
-                    # because this leads to an error in `get_model_matrix`
-                    cond_dict[var] = tmp_base if tmp_base is not None else "\0"
-                else:
-                    # Set to zero for continuous variables
-                    cond_dict[var] = 0
+                cond_dict[var] = self._get_default_value(var)
 
         df = pd.DataFrame([kwargs])
         return self.design.model_spec.get_model_matrix(df).iloc[0]
+
+    def _get_factor_metadata_for_variable(self, var) -> list[FactorMetadata]:
+        """
+        Get the Metadata objects of all factors defined by a given variable.
+
+        A variable can refer to one or multiple factors. Either if a variable is specified
+        multiple times in the model (e.g. ~ var + C(var); ~ continuous + np.log(continuous))
+        or when there's an interaction term (e.g. ~ A * B ==> terms `A`, `B`, `A:B`).
+
+        Some Factors can have multiple metadata objects, because they are specified
+        multiple times in the formula, or forumlaic resolves them multiple times internally.
+
+        Even if there are multiple factors per variable, they could still contain the same metadata and we
+        can unambiguously retreive metadata for a given variable, e.g. using the `_util.formulaic.resolve_ambiguous`
+        function.
+
+        Returns
+        -------
+        a list of FactorMetadata objects
+        """
+        factors = self.variable_to_factors[var]
+
+        return list(chain.from_iterable(self.factor_storage[f] for f in factors))
+
+    def _get_default_value(self, var) -> Any:
+        r"""
+        Get the default value (base category) for variable `var`.
+
+        Special cases:
+         * If the variable is continuous, return 0.
+         * For a variable without reduced rank (as it happens for the first variable in a no-intercept model `~0 + xxx`)
+           the function returns the null string "\0". This is to ensure that when passed to `formulaic.get_model_matrix`,
+           a row is returned that sets all columns of that variable to 0. It could be any string that is not
+           a valid category. It cannot be `None`, because this results in failure of `get_model_matrix`, therefore the
+           null string was chosen because of clear semantics and it being surely not a valid category.
+
+        Raises
+        ------
+        ValueError
+            If there is no way to unambiguously infer the base category from the formulaic formula.
+
+        Returns
+        -------
+        The default value of the given variable.
+        """
+        factor_metadata = self._get_factor_metadata_for_variable(var)
+        if resolve_ambiguous(factor_metadata, "kind") == Factor.Kind.CATEGORICAL:
+            # In this case it can be ambiguous for some formulas -> Tell the user to specify the variable explicitly
+            try:
+                tmp_base = resolve_ambiguous(factor_metadata, "base")
+            except AmbiguousAttributeError as e:
+                raise ValueError(
+                    f"Could not automatically resolve base category for variable {var}. Please specify it explicity in `model.cond`."
+                ) from e
+
+            # if tmp_base is None (no-intercept model), set it to the NUL string \0.
+            # In principle, it could be any string that is not a valid category, but it cannot be None
+            # because this leads to an error in `get_model_matrix`
+            return tmp_base if tmp_base is not None else "\0"
+        else:
+            # Set to zero for continuous variables
+            return 0
+
+    def _check_category(self, var, value) -> None:
+        """
+        Check if `value` is a valid category of the factor defined by `var`.
+
+        If `var` is a continuous variable this passes silently.
+
+        Raises
+        ------
+        ValueError
+            If `value` is not a valid category.
+        """
+        factor_metadata = self._get_factor_metadata_for_variable(var)
+
+        # Getting the categories should never be non-ambiguous. If it happens, it's an edge case we don't know about (-> let it fail)
+        tmp_categories = resolve_ambiguous(factor_metadata, "categories")
+        if resolve_ambiguous(factor_metadata, "kind") == Factor.Kind.CATEGORICAL and value not in tmp_categories:
+            raise ValueError(
+                f"You specified a non-existant category for {var}. Possible categories: {', '.join(tmp_categories)}"
+            )
 
     def contrast(self, column: str, baseline: str, group_to_compare: str) -> pd.Series:
         """

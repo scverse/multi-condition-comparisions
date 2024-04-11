@@ -78,7 +78,7 @@ class FactorMetadata:
                 return self.drop_field
 
 
-def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata]], type]:
+def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata]], dict[str, set[str]], type]:
     """
     Keep track of categorical factors used in a model spec.
 
@@ -97,7 +97,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata
     # There can be multiple FactorMetadata entries per sample, for instance when formulaic generates an interaction
     # term, it generates the factor with both full rank and reduced rank.
     factor_storage: dict[str, list[FactorMetadata]] = defaultdict(list)
-    variable_to_factors: dict[str, list[set]] = defaultdict(set)
+    variable_to_factors: dict[str, set[str]] = defaultdict(set)
 
     class CustomPandasMaterializer(PandasMaterializer):
         """An extension of the PandasMaterializer that records all cateogrical variables and their (base) categories."""
