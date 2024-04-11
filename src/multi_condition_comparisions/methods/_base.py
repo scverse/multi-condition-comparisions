@@ -152,11 +152,12 @@ class LinearModelBase(MethodBase):
         self._check_counts()
 
         self.factor_storage = None
+        self.variable_to_factors = None
         """Object to store metadata of formulaic factors which is used for building contrasts later. If a design matrix
         is passed directly, this remains None."""
 
         if isinstance(design, str):
-            self.factor_storage, materializer_class = get_factor_storage_and_materializer()
+            self.factor_storage, self.variable_to_factors, materializer_class = get_factor_storage_and_materializer()
             self.design = materializer_class(adata.obs, record_factor_metadata=True).get_model_matrix(design)
         else:
             self.design = design
@@ -362,13 +363,14 @@ class LinearModelBase(MethodBase):
             # A variable can refer to one or multiple terms. Either if a variable is specified
             # multiple times in the model (e.g. ~ var + C(var); ~ continuous + np.log(continuous))
             # or when there's an interaction term (e.g. ~ A * B ==> terms `A`, `B`, `A:B`)
-            terms = self.design.model_spec.variable_terms[var]
+            factors = self.variable_to_factors[var]
 
-            # Get list of all Metadata objects for the associated terms.
+            # Get list of all Metadata objects for the associated Factors.
             # Some terms don't have metadata (e.g. instead of an interaction term `A:B`, metadata exists only for the
-            # individual variablesl `A` and `B`). Some terms have multiple metadata objects, because they are specified
+            # individual variables `A` and `B`). Some terms have multiple metadata objects, because they are specified
             # multiple times in the formula, or forumlaic resolves them multiple times internally.
-            terms_metadata = list(chain.from_iterable(self.factor_storage[term] for term in terms))
+            # terms_metadata = list(chain.from_iterable(self.factor_storage[term] for term in terms))
+            terms_metadata = list(chain.from_iterable(self.factor_storage[f] for f in factors))
 
             # If the variable is specified in the cond_dict explicitly, we just keep it as is.
             # We still verify that it's a valid category, otherwise simple typos are not caught and lead to

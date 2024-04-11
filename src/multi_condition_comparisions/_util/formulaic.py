@@ -1,4 +1,11 @@
-"""Helpers to interact with Formulaic Formulas"""
+"""Helpers to interact with Formulaic Formulas
+
+TODO Glossary:
+ * factor
+ * term
+ * variable
+
+"""
 
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
@@ -81,12 +88,16 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata
     -------
     factor_storage
         A dictionary pointing to Metadata for each factor processed by the custom materializer
+    variable_to_factors
+        A dictionary mapping variables to factor names (similar to model_spec.variable_terms), except that it maps
+        to *factors* rather than *terms*
     CustomPandasMaterializer
         A materializer class that is tied to the particular instance of `factor_storage`.
     """
     # There can be multiple FactorMetadata entries per sample, for instance when formulaic generates an interaction
     # term, it generates the factor with both full rank and reduced rank.
     factor_storage: dict[str, list[FactorMetadata]] = defaultdict(list)
+    variable_to_factors: dict[str, list[set]] = defaultdict(set)
 
     class CustomPandasMaterializer(PandasMaterializer):
         """An extension of the PandasMaterializer that records all cateogrical variables and their (base) categories."""
@@ -120,6 +131,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata
                 passed to PandasMaterializer
             """
             self.factor_metadata_storage = factor_storage if record_factor_metadata else None
+            self.variable_to_factors = variable_to_factors if record_factor_metadata else None
             # temporary pointer to metadata of factor that is currently evaluated
             self._current_factor: FactorMetadata = None
             super().__init__(data, context, **params)
@@ -141,6 +153,8 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata
                 if factor.expr in self.encoded_cache or (factor.expr, reduced_rank) in self.encoded_cache:
                     assert factor.expr in self.factor_metadata_storage, "Factor should be there since it's cached"
                 else:
+                    for var in factor.variables:
+                        self.variable_to_factors[var].add(factor.expr)
                     self._current_factor = FactorMetadata(
                         name=factor.expr,
                         reduced_rank=reduced_rank,
@@ -167,7 +181,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata
 
             return super()._flatten_encoded_evaled_factor(name, values)
 
-    return factor_storage, CustomPandasMaterializer
+    return factor_storage, variable_to_factors, CustomPandasMaterializer
 
 
 class AmbiguousAttributeError(ValueError):

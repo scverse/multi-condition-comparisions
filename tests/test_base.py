@@ -67,7 +67,9 @@ def MockLinearModel():
             {"condition": "B", "donor": "D0"},
             [1, 1, 1, 0, 0, 1, 0, 0],
         ],
-        ["~ condition:donor", {"condition": "A"}, [1, 0, 0, 0, 0]],
+        ["~ condition:donor", {"condition": "A"}, [1, 0, 0, 0]],
+        ["~ condition:C(donor)", {"condition": "A", "donor": "D1"}, [1, 0, 0, 0]],
+        ["~ condition:donor", {"condition": "A", "donor": "D1"}, [1, 0, 0, 0]],
     ],
 )
 def test_model_cond(test_adata_minimal, MockLinearModel, formula, cond_kwargs, expected_contrast):
