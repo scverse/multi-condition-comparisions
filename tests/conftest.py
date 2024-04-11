@@ -1,14 +1,9 @@
-# TODO: temp workaround for Gregor
-import os
-
 import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
 import scipy.sparse as sp
 from pydeseq2.utils import load_example_data
-
-os.environ["R_HOME"] = "/home/sturm/apps/micromamba/envs/multi-condition-comparisons/lib/R"
 
 
 @pytest.fixture
