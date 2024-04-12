@@ -99,7 +99,7 @@ def get_factor_storage_and_materializer() -> tuple[dict[str, list[FactorMetadata
     variable_to_factors: dict[str, set[str]] = defaultdict(set)
 
     class CustomPandasMaterializer(PandasMaterializer):
-        """An extension of the PandasMaterializer that records all cateogrical variables and their (base) categories."""
+        """An extension of the PandasMaterializer that records all categorical variables and their (base) categories."""
 
         REGISTER_NAME = "custom_pandas"
         REGISTER_INPUTS = ("pandas.core.frame.DataFrame",)
