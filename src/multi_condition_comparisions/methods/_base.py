@@ -356,7 +356,7 @@ class LinearModelBase(MethodBase):
             )
 
         # We now fill `cond_dict` such that it is equivalent to a data row from `adata.obs`.
-        # This data can then be passed to the `get_model_matrix` of formulaic to retreive a correpsonding
+        # This data can then be passed to the `get_model_matrix` of formulaic to retrieve a corresponding
         # contrast vector.
         # To do so, we keep the values that were already specified, and fill all other values with the default category
         # (the one that is usually dropped from the model for being redundant).
