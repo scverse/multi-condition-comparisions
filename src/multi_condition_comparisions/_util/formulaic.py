@@ -1,10 +1,9 @@
 """Helpers to interact with Formulaic Formulas
 
-TODO Glossary:
- * factor
- * term
- * variable
-
+Some helpful definitions for working with formulaic formulas (e.g. `~ 0 + C(donor):treatment + np.log1p(continuous)`):
+ * A *term* refers to an expression in the formula, separated by `+`, e.g. `C(donor):treatment`, or `np.log1p(continuous)`.
+ * A *variable* refers to a column of the data frame passed to formulaic, e.g. `donor`.
+ * A *factor* is the specification of how a certain variable is represented in the design matrix, e.g. treatment coding with base level "A" and reduced rank.
 """
 
 from collections import defaultdict
