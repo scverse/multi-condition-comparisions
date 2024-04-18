@@ -153,11 +153,11 @@ class LinearModelBase(MethodBase):
         super().__init__(adata, mask=mask, layer=layer)
         self._check_counts()
 
-        self.factor_storage: dict[str, list[FactorMetadata]] = None
+        self.factor_storage: dict[str, list[FactorMetadata]] | None = None
         """Object to store metadata of formulaic factors which is used for building contrasts later. If a design matrix
         is passed directly, this remains None."""
 
-        self.variable_to_factors: dict[str, set[str]] = None
+        self.variable_to_factors: dict[str, set[str]] | None = None
         """Stores mapping from variables to formulaic factors"""
 
         if isinstance(design, str):
