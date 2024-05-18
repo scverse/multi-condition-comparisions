@@ -18,7 +18,7 @@ class Statsmodels(LinearModelBase):
 
     def fit(
         self,
-        regression_model: sm.OLS | sm.GLM = sm.OLS,
+        regression_model: type[sm.OLS] | type[sm.GLM] = sm.OLS,
         **kwargs,
     ) -> None:
         """

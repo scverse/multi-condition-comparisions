@@ -12,7 +12,7 @@ def test_edger_simple(test_adata):
     """
     method = EdgeR(adata=test_adata, design="~condition")
     method.fit()
-    res_df = method.test_contrasts(["condition", "A", "B"])
+    res_df = method.test_contrasts(method.contrast("condition", "A", "B"))
 
     assert len(res_df) == test_adata.n_vars
 
@@ -24,7 +24,7 @@ def test_edger_complex(test_adata):
     test_adata.obs["condition1"] = test_adata.obs["condition"].copy()
     method = EdgeR(adata=test_adata, design="~condition1+group")
     method.fit()
-    res_df = method.test_contrasts(["condition1", "A", "B"])
+    res_df = method.test_contrasts(method.contrast("condition1", "A", "B"))
 
     assert len(res_df) == test_adata.n_vars
     # Check that the index of the result matches the var_names of the AnnData object
