@@ -1,3 +1,8 @@
+> [!NOTE]
+> The functionality developed in this repo has now been integrated into [pertpy](https://github.com/theislab/pertpy).
+>
+> This repo holds prototypes for a differential expression interface for scverse that has been developed at the [scverse hackathon in Cambridge, UK in November 2023](https://scverse.org/events/2023_11_hackathon/). It has now been archived as read-only. 
+
 # multi-condition-comparisions
 
 [![Tests][badge-tests]][link-tests]
